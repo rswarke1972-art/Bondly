@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#7BAFD4">
+    <meta name="description" content="Bondly - Find Your People. Real conversations. Real friendships.">
+    <title>Bondly 💙🌍 - Find Your People</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app">
+        <!-- Demo Mode Banner -->
+        <div id="demo-banner" class="demo-banner hidden">
+            <span>⚠️ Demo Mode: Firebase not configured. Add your Firebase credentials in firebase.js to enable full functionality.</span>
+            <button onclick="document.getElementById('demo-banner').classList.add('hidden')">✕</button>
+        </div>
+        
+        <!-- Auth Screen -->
+        <div id="auth-screen" class="screen active">
+            <div class="auth-container">
+                <div class="auth-logo">
+                    <h1 class="logo-text">Bondly 💙🌍</h1>
+                    <p class="tagline">Find Your People</p>
+                </div>
+                
+                <div class="auth-forms">
+                    <!-- Login Form -->
+                    <div id="login-form" class="auth-form active">
+                        <h2>Welcome Back</h2>
+                        <form id="login-email-form">
+                            <div class="form-group">
+                                <input type="email" id="login-email" placeholder="Email" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="password" id="login-password" placeholder="Password" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                        </form>
+                        
+                        <p class="auth-forgot">
+                            <a href="#" id="forgot-password-link">Forgot password?</a>
+                        </p>
+                        
+                        <div class="auth-divider">
+                            <span>or</span>
+                        </div>
+                        
+                        <button id="google-login-btn" class="btn btn-google btn-full">
+                            <span class="google-icon">G</span>
+                            Continue with Google
+                        </button>
+                        
+                        <p class="auth-switch">
+                            Don't have an account? <a href="#" id="switch-to-signup">Sign Up</a>
+                        </p>
+                    </div>
+                    
+                    <!-- Signup Form -->
+                    <div id="signup-form" class="auth-form">
+                        <h2>Create Account</h2>
+                        <form id="signup-email-form">
+                            <div class="form-group">
+                                <input type="text" id="signup-name" placeholder="Display Name" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="signup-username" placeholder="Username" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="email" id="signup-email" placeholder="Email" required>
+                            </div>
+                            <div class="form-group">
+                                <input type="password" id="signup-password" placeholder="Password" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                        </form>
+                        
+                        <div class="auth-divider">
+                            <span>or</span>
+                        </div>
+                        
+                        <button id="google-signup-btn" class="btn btn-google btn-full">
+                            <span class="google-icon">G</span>
+                            Continue with Google
+                        </button>
+                        
+                        <p class="auth-switch">
+                            Already have an account? <a href="#" id="switch-to-login">Sign In</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main App Screen -->
+        <div id="main-screen" class="screen hidden">
+            <!-- Navigation Bar -->
+            <nav class="nav-bar">
+                <div class="nav-item active" data-screen="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">Home</span>
+                </div>
+                <div class="nav-item" data-screen="discover">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">Discover</span>
+                </div>
+                <div class="nav-item" data-screen="chats">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">Chats</span>
+                    <span class="nav-badge" id="chats-badge"></span>
+                </div>
+                <div class="nav-item" data-screen="friends">
+                    <span class="nav-icon">🫂</span>
+                    <span class="nav-label">Friends</span>
+                    <span class="nav-badge" id="friends-badge"></span>
+                </div>
+                <div class="nav-item" data-screen="profile">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">Profile</span>
+                    <span class="nav-badge" id="notifications-badge"></span>
+                </div>
+            </nav>
+            
+            <!-- Home Screen -->
+            <div id="home-screen" class="content-screen active">
+                <div class="screen-header">
+                    <h1 id="greeting">Good evening 🌙</h1>
+                    <p class="subtitle">Ready to connect?</p>
+                </div>
+                
+                <!-- Activity Cards -->
+                <div class="activity-grid">
+                    <div class="activity-card" id="unread-messages-card">
+                        <span class="activity-icon">💬</span>
+                        <span class="activity-count" id="unread-count">0</span>
+                        <span class="activity-label">Unread</span>
+                    </div>
+                    <div class="activity-card" id="friend-requests-card">
+                        <span class="activity-icon">🫂</span>
+                        <span class="activity-count" id="requests-count">0</span>
+                        <span class="activity-label">Requests</span>
+                    </div>
+                    <div class="activity-card" id="new-matches-card">
+                        <span class="activity-icon">🌍</span>
+                        <span class="activity-count" id="matches-count">0</span>
+                        <span class="activity-label">Matches</span>
+                    </div>
+                    <div class="activity-card" id="study-buddies-card">
+                        <span class="activity-icon">📚</span>
+                        <span class="activity-count" id="study-count">0</span>
+                        <span class="activity-label">Study</span>
+                    </div>
+                </div>
+                
+                <!-- Daily Conversation Prompt -->
+                <div class="card prompt-card">
+                    <div class="card-header">
+                        <span class="card-icon">💭</span>
+                        <h3>Daily Conversation Prompt</h3>
+                    </div>
+                    <p class="prompt-text" id="daily-prompt">What belief changed your life?</p>
+                </div>
+                
+                <!-- Recommended Connections -->
+                <div class="section">
+                    <h2>Recommended Connections</h2>
+                    <div id="recommendations-list" class="recommendations-list">
+                        <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                            Sign in to see recommendations
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Navigation Bar -->
+            <nav class="nav-bar">
+                <div class="nav-item active" data-screen="home">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">Home</span>
+                </div>
+                <div class="nav-item" data-screen="discover">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">Discover</span>
+                </div>
+                <div class="nav-item" data-screen="chats">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">Chats</span>
+                    <span class="nav-badge" id="chats-badge"></span>
+                </div>
+                <div class="nav-item" data-screen="friends">
+                    <span class="nav-icon">🫂</span>
+                    <span class="nav-label">Friends</span>
+                    <span class="nav-badge" id="friends-badge"></span>
+                </div>
+                <div class="nav-item" data-screen="profile">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">Profile</span>
+                </div>
+            </nav>
+            
+            <!-- Home Screen -->
+            <div id="home-screen" class="content-screen active">
+                <div class="screen-header">
+                    <h1 id="greeting">Good evening 🌙</h1>
+                    <p class="subtitle">Ready to connect?</p>
+                </div>
+                
+                <!-- Activity Cards -->
+                <div class="activity-grid">
+                    <div class="activity-card" id="unread-messages-card">
+                        <span class="activity-icon">💬</span>
+                        <span class="activity-count" id="unread-count">0</span>
+                        <span class="activity-label">Unread</span>
+                    </div>
+                    <div class="activity-card" id="friend-requests-card">
+                        <span class="activity-icon">🫂</span>
+                        <span class="activity-count" id="requests-count">0</span>
+                        <span class="activity-label">Requests</span>
+                    </div>
+                    <div class="activity-card" id="new-matches-card">
+                        <span class="activity-icon">🌍</span>
+                        <span class="activity-count" id="matches-count">0</span>
+                        <span class="activity-label">Matches</span>
+                    </div>
+                    <div class="activity-card" id="study-buddies-card">
+                        <span class="activity-icon">📚</span>
+                        <span class="activity-count" id="study-count">0</span>
+                        <span class="activity-label">Study</span>
+                    </div>
+                </div>
+                
+                <!-- Daily Conversation Prompt -->
+                <div class="card prompt-card">
+                    <div class="card-header">
+                        <span class="card-icon">💭</span>
+                        <h3>Daily Conversation Prompt</h3>
+                    </div>
+                    <p class="prompt-text" id="daily-prompt">What belief changed your life?</p>
+                </div>
+                
+                <!-- Recommended Connections -->
+                <div class="section">
+                    <h2>Recommended Connections</h2>
+                    <div id="recommendations-list" class="recommendations-list">
+                        <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                            Sign in to see recommendations
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Discover Screen -->
+            <div id="discover-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h1>Discover</h1>
+                    <p class="subtitle">Find new connections</p>
+                </div>
+                
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <input type="text" id="discover-search" placeholder="Search people, interests, languages...">
+                    <button class="search-btn">🔍</button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="filters-container">
+                    <div class="filter-scroll">
+                        <button class="filter-chip active" data-filter="all">All</button>
+                        <button class="filter-chip" data-filter="language">Language</button>
+                        <button class="filter-chip" data-filter="interest">Interests</button>
+                        <button class="filter-chip" data-filter="country">Country</button>
+                        <button class="filter-chip" data-filter="deepmode">Deep Mode</button>
+                    </div>
+                </div>
+                
+                <!-- Discover Results -->
+                <div id="discover-results" class="discover-results">
+                    <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                        Sign in to discover people
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Chats Screen -->
+            <div id="chats-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h1>Messages</h1>
+                    <button class="icon-btn" id="new-chat-btn">✏️</button>
+                </div>
+                
+                <!-- Chat List -->
+                <div id="chat-list" class="chat-list">
+                    <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                        Sign in to see your messages
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Friends Screen -->
+            <div id="friends-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h1>Friends</h1>
+                    <button class="icon-btn" id="add-friend-btn">➕</button>
+                </div>
+                
+                <!-- Friend Categories -->
+                <div class="friend-categories">
+                    <button class="category-chip active" data-category="all">All</button>
+                    <button class="category-chip" data-category="close">💙 Close</button>
+                    <button class="category-chip" data-category="language">🌍 Language</button>
+                    <button class="category-chip" data-category="study">📚 Study</button>
+                    <button class="category-chip" data-category="new">✨ New</button>
+                </div>
+                
+                <!-- Friend Requests Section -->
+                <div id="friend-requests-section" class="section hidden">
+                    <h2>Friend Requests</h2>
+                    <div id="friend-requests-list" class="friend-requests-list">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+                
+                <!-- Friends List -->
+                <div id="friends-list" class="friends-list">
+                    <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                        Sign in to see your friends
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Profile Screen -->
+            <div id="profile-screen" class="content-screen hidden">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <img id="profile-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%237BAFD4' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='40' text-anchor='middle' dy='.3em' fill='white'%3E👤%3C/text%3E%3C/svg%3E" alt="Profile">
+                        <button class="avatar-edit-btn">📷</button>
+                    </div>
+                    <h1 id="profile-name">Your Name</h1>
+                    <p id="profile-username">@username</p>
+                    <p id="profile-bio" class="profile-bio">Sign in to view your profile</p>
+                </div>
+                
+                <!-- Profile Stats -->
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="friends-stat">0</span>
+                        <span class="stat-label">Friends</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="conversations-stat">0</span>
+                        <span class="stat-label">Conversations</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="achievements-stat">0</span>
+                        <span class="stat-label">Achievements</span>
+                    </div>
+                </div>
+                
+                <!-- Profile Details -->
+                <div class="profile-details">
+                    <div class="detail-section">
+                        <h3>🌍 Languages</h3>
+                        <div id="profile-languages" class="tags-container">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>🎯 Interests</h3>
+                        <div id="profile-interests" class="tags-container">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>✨ Personality</h3>
+                        <div id="profile-personality" class="tags-container">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>🫂 Looking For</h3>
+                        <div id="profile-goals" class="tags-container">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile Actions -->
+                <div class="profile-actions">
+                    <button class="btn btn-secondary" id="edit-profile-btn">Edit Profile</button>
+                    <button class="btn btn-secondary" id="settings-btn">⚙️ Settings</button>
+                </div>
+            </div>
+            
+            <!-- Notifications Screen -->
+            <div id="notifications-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <h1>Notifications</h1>
+                    <button class="icon-btn" id="mark-all-read-btn">✓ All read</button>
+                </div>
+                
+                <div id="notifications-list" class="notifications-list">
+                    <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
+                        Loading notifications...
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="screen hidden">
+            <div class="chat-header">
+                <button class="back-btn" id="chat-back-btn">←</button>
+                <div class="chat-user-info">
+                    <img id="chat-user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect fill='%237BAFD4' width='40' height='40'/%3E%3Ctext x='20' y='20' font-size='20' text-anchor='middle' dy='.3em' fill='white'%3E👤%3C/text%3E%3C/svg%3E" alt="User">
+                    <div class="chat-user-details">
+                        <h3 id="chat-user-name">User Name</h3>
+                        <p id="chat-user-status" class="status-text">Online</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="chat-options-btn">⋮</button>
+            </div>
+            
+            <!-- Messages Container -->
+            <div id="messages-container" class="messages-container">
+                <!-- Dynamic messages -->
+            </div>
+            
+            <!-- Message Input -->
+            <div class="message-input-container">
+                <button class="icon-btn" id="attach-btn">📎</button>
+                <input type="text" id="message-input" placeholder="Type a message...">
+                <button class="icon-btn" id="emoji-btn">😊</button>
+                <button class="send-btn" id="send-message-btn">💙</button>
+            </div>
+        </div>
+        
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="screen hidden">
+            <div class="screen-header">
+                <button class="back-btn" id="settings-back-btn">←</button>
+                <h1>Settings</h1>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item">
+                    <span class="setting-label">🌙 Dark Mode</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="dark-mode-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🌙 Deep Mode</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="deep-mode-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🔔 Notifications</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notifications-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">👁️ Online Status</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="online-status-toggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item clickable" id="privacy-settings">
+                    <span class="setting-label">🔒 Privacy</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable" id="blocked-users">
+                    <span class="setting-label">🚫 Blocked Users</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable" id="language-settings">
+                    <span class="setting-label">🌍 Language Preferences</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable" id="notification-settings">
+                    <span class="setting-label">🔔 Notifications</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable" id="chat-themes">
+                    <span class="setting-label">🎨 Chat Themes</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable" id="achievements-settings">
+                    <span class="setting-label">🏆 Achievements</span>
+                    <span class="setting-arrow">→</span>
+                </div>
+                
+                <div class="setting-item clickable danger" id="logout-btn">
+                    <span class="setting-label">🚪 Log Out</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Edit Profile Screen -->
+        <div id="edit-profile-screen" class="screen hidden">
+            <div class="screen-header">
+                <button class="back-btn" id="edit-profile-back-btn">←</button>
+                <h1>Edit Profile</h1>
+            </div>
+            
+            <form id="edit-profile-form" class="edit-profile-form">
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="edit-name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Bio</label>
+                    <textarea id="edit-bio" rows="3" maxlength="500"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Country</label>
+                    <input type="text" id="edit-country">
+                </div>
+                
+                <div class="form-group">
+                    <label>Age Range (optional)</label>
+                    <select id="edit-age">
+                        <option value="">Prefer not to say</option>
+                        <option value="18-24">18-24</option>
+                        <option value="25-34">25-34</option>
+                        <option value="35-44">35-44</option>
+                        <option value="45-54">45-54</option>
+                        <option value="55+">55+</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Pronouns (optional)</label>
+                    <input type="text" id="edit-pronouns" placeholder="they/them, she/her, he/him">
+                </div>
+                
+                <div class="form-group">
+                    <label>Languages (comma separated)</label>
+                    <input type="text" id="edit-languages" placeholder="English, Spanish, Japanese">
+                </div>
+                
+                <div class="form-group">
+                    <label>Learning Goals (comma separated)</label>
+                    <input type="text" id="edit-learning" placeholder="Persian, French">
+                </div>
+                
+                <div class="form-group">
+                    <label>Interests (comma separated)</label>
+                    <input type="text" id="edit-interests" placeholder="books, psychology, languages, chess">
+                </div>
+                
+                <div class="form-group">
+                    <label>Personality Tags (comma separated)</label>
+                    <input type="text" id="edit-personality" placeholder="Deep Conversations, Funny, Night Owl">
+                </div>
+                
+                <div class="form-group">
+                    <label>Looking For (comma separated)</label>
+                    <input type="text" id="edit-goals" placeholder="friendship, language partner, study buddy">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
+            </form>
+        </div>
+        
+        <!-- Notification Settings Screen -->
+        <div id="notification-settings-screen" class="screen hidden">
+            <div class="screen-header">
+                <button class="back-btn" id="notification-settings-back-btn">←</button>
+                <h1>Notifications</h1>
+            </div>
+            
+            <div class="settings-list">
+                <div class="setting-item">
+                    <span class="setting-label">💬 Messages</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-messages" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🫂 Friend Requests</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-friend-requests" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🌍 Matches</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-matches" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🏆 Achievements</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-achievements" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🔔 Push Notifications</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-push" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🔊 Sound</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="notify-sound" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- User Profile Screen (viewing other user) -->
+        <div id="user-profile-screen" class="screen hidden">
+            <div class="screen-header">
+                <button class="back-btn" id="user-profile-back-btn">←</button>
+                <h1>Profile</h1>
+            </div>
+            
+            <div id="user-profile-content" class="user-profile-content">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loading-spinner"></div>
+            <p>Loading...</p>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div id="toast" class="toast hidden">
+            <span id="toast-message"></span>
+        </div>
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="firebase.js"></script>
+    <script src="utils.js"></script>
+    <script src="mobile.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    <script src="presence.js"></script>
+    <script src="notificationCenter.js"></script>
+    <script src="home.js"></script>
+    <script src="profile.js"></script>
+    <script src="friends.js"></script>
+    <script src="chats.js"></script>
+    <script src="messaging.js"></script>
+    <script src="discover.js"></script>
+    <script src="matching.js"></script>
+    <script src="language.js"></script>
+    <script src="deepmode.js"></script>
+    <script src="safety.js"></script>
+    <script src="moderation.js"></script>
+    <script src="notifications.js"></script>
+    <script src="settings.js"></script>
+    <script src="search.js"></script>
+    <script src="achievements.js"></script>
+</body>
+</html>
