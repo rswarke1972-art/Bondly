@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isParticipant(participants) {
+      return isAuthenticated() && request.auth.uid in participants;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+      
+      // User subcollections (blockedUsers, mutedUsers)
+      match /{subcollection}/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // User stats (public read)
+    match /userStats/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // Friend requests
+    match /friendRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+        (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+    }
+    
+    // Friends
+    match /friends/{friendId} {
+      allow read: if isParticipant(resource.data.participants);
+      allow create: if isParticipant(request.resource.data.participants);
+      allow update, delete: if isParticipant(resource.data.participants);
+    }
+    
+    // Chats
+    match /chats/{chatId} {
+      allow read: if isParticipant(resource.data.participants);
+      allow create: if isParticipant(request.resource.data.participants);
+      allow update: if isParticipant(resource.data.participants);
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isParticipant(resource.data.participants);
+        allow create: if isAuthenticated() && 
+          request.resource.data.sender == request.auth.uid;
+        allow update, delete: if isAuthenticated() && 
+          resource.data.sender == request.auth.uid;
+      }
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Achievements
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Reports
+    match /reports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && 
+        resource.data.reporter == request.auth.uid;
+    }
+    
+    // Flagged content
+    match /flaggedContent/{contentId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+    }
+    
+    // User violations
+    match /userViolations/{violationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
+  }
+}
