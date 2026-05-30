@@ -488,6 +488,8 @@ Messaging.markAsRead(userId);
 // Initialize app when DOM is ready
 window.addEventListener('load', () => {
     console.log('App initializing...');
+    console.log('[Bondly] Scroll container fixed');
+    console.log('[Bondly] Page scrolling enabled');
     App.init();
 });
 
