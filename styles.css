@@ -156,19 +156,30 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: var(--warm-cream);
     transition: transform var(--transition-normal), opacity var(--transition-normal);
-    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
 }
 
-#edit-profile-screen,
-#settings-screen,
-#user-profile-screen {
+.screen-header {
+    padding: var(--spacing-lg);
+    background: var(--warm-cream);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#edit-profile-screen .edit-profile-form,
+#settings-screen .settings-list,
+#user-profile-screen .user-profile-content {
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    padding: var(--spacing-lg);
 }
 
 .screen.hidden {
@@ -584,11 +595,6 @@ body {
 .content-screen {
     padding-bottom: 80px;
     min-height: 100vh;
-}
-
-.screen-header {
-    padding: var(--spacing-lg);
-    background: var(--warm-cream);
 }
 
 .screen-header h1 {
@@ -1447,8 +1453,9 @@ body {
 .message-input-container {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
     background: var(--white);
     border-top: 1px solid var(--gray-200);
     position: sticky;
@@ -1458,31 +1465,35 @@ body {
     z-index: 100;
 }
 
-@media (max-width: 768px) {
-    .message-input-container {
-        padding: var(--spacing-sm);
-        padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
-        gap: var(--spacing-xs);
-    }
-
-    .message-input-container input {
-        padding: var(--spacing-sm);
-        font-size: 0.875rem;
-    }
-
-    .send-btn {
-        padding: var(--spacing-sm) var(--spacing-md);
-        font-size: 0.875rem;
-    }
+.attach-wrapper {
+    position: relative;
+    flex-shrink: 0;
 }
 
 .message-input-container input {
     flex: 1;
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
     border: 2px solid var(--gray-200);
     border-radius: var(--radius-full);
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-family: var(--font-primary);
+    min-width: 0;
+}
+
+.message-input-container .icon-btn {
+    flex-shrink: 0;
+    padding: var(--spacing-sm);
+    font-size: 1.25rem;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.message-input-container .send-btn {
+    flex-shrink: 0;
+    padding: var(--spacing-sm);
+    font-size: 1.25rem;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 .message-input-container input:focus {
