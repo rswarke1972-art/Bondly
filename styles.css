@@ -2121,3 +2121,19 @@ body {
     max-width: 220px;
     word-break: break-word;
 }
+
+.install-popup {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 16px;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.15);
+    z-index: 9999;
+}
+
+.hidden {
+    display: none;
+}

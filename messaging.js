@@ -608,15 +608,58 @@ if (voiceBtn) {
                     const messages = [];
                     
                     snapshot.forEach(doc => {
-                        const msg = doc.data();
-                        // Only show non-deleted messages
-                        if (!msg.deleted) {
-                            messages.push({
-                                id: doc.id,
-                                ...msg
-                            });
-                        }
-                    });
+    const msg = doc.data();
+
+    // Get notification settings
+    const settings =
+        Utils.storage.get(
+            'notificationSettings'
+        ) || {};
+
+    // 🔔 New message notification
+    if (
+        document.hidden &&
+        Notification.permission ===
+            "granted" &&
+        msg.sender !== currentUserId &&
+        settings.messages !== false &&
+        settings.push !== false
+    ) {
+
+        new Notification(
+            "New Message 💬",
+            {
+                body:
+                    msg.text ||
+                    "Sent a photo/video/file",
+                icon:
+                    "/favicon.ico"
+            }
+        );
+
+        // Optional sound
+        if (
+            settings.sound !== false
+        ) {
+            new Audio(
+                "/notification.mp3"
+            ).play()
+            .catch(() => {});
+        }
+
+        console.log(
+            "[Bondly] Message notification sent"
+        );
+    }
+
+    // Only show non-deleted messages
+    if (!msg.deleted) {
+        messages.push({
+            id: doc.id,
+            ...msg
+        });
+    }
+});
                     
                     Messaging.renderMessages(
     messages.reverse()

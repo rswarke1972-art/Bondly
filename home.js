@@ -98,10 +98,14 @@ const Home = {
             });
 
             const usersSnapshot = await db.collection('users')
-                .where('uid', '!=', userId)
-                .orderBy('uid')
+.orderBy('lastActive', 'desc')
                 .limit(20)
                 .get();
+
+                const recommended =
+    usersSnapshot.docs.filter(
+        doc => doc.id !== userId
+    );
 
             let matchesCount = 0;
             usersSnapshot.forEach(doc => {
@@ -252,15 +256,20 @@ const Home = {
                     </div>
                 `).join('');
             } else {
-                // Fallback: show recent active users
-                const recentUsersSnapshot = await db.collection('users')
-                    .where('uid', '!=', userId)
-                    .orderBy('lastActive', 'desc')
-                    .limit(3)
-                    .get();
+                const recentUsersSnapshot =
+    await db.collection('users')
+        .orderBy('lastActive', 'desc')
+        .limit(10)
+        .get();
+
+// Remove current user manually
+const filteredUsers =
+    recentUsersSnapshot.docs.filter(
+        doc => doc.id !== userId
+    );
 
                 const recentUsers = [];
-                recentUsersSnapshot.forEach(doc => {
+                filteredUsers.forEach(doc => {
                     const user = doc.data();
                     if (!friendIds.has(user.uid) && !requestedIds.has(user.uid) && !blockedIds.has(user.uid)) {
                         recentUsers.push(user);

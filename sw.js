@@ -1,21 +1,21 @@
 // Bondly Service Worker for PWA
 
-const CACHE_NAME = 'bondly-v1';
+const CACHE_NAME = 'bondly-v2';
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/auth.js',
-    '/friends.js',
-    '/home.js',
-    '/messaging.js',
-    '/notifications.js',
-    '/profile.js',
-    '/settings.js',
-    '/utils.js',
-    '/firebase-config.js',
-    '/manifest.json'
+    '/Bondly/',
+    '/Bondly/index.html',
+    '/Bondly/styles.css',
+    '/Bondly/app.js',
+    '/Bondly/auth.js',
+    '/Bondly/friends.js',
+    '/Bondly/home.js',
+    '/Bondly/messaging.js',
+    '/Bondly/notifications.js',
+    '/Bondly/profile.js',
+    '/Bondly/settings.js',
+    '/Bondly/utils.js',
+    '/Bondly/firebase-config.js',
+    '/Bondly/manifest.json'
 ];
 
 // Install event - cache resources
@@ -87,7 +87,7 @@ self.addEventListener('push', (event) => {
     const options = {
         body: event.data ? event.data.text() : 'New notification',
         icon: '/favicon.ico',
-        badge: '/favicon.ico',
+badge: '/favicon.ico',
         vibrate: [200, 100, 200],
         data: {
             dateOfArrival: Date.now(),
@@ -107,6 +107,6 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     event.waitUntil(
-        clients.openWindow('/')
+        clients.openWindow('/Bondly/')
     );
 });

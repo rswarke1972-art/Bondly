@@ -6,23 +6,34 @@ const App = {
     
     // Initialize app
     init: () => {
-        // Setup navigation using event delegation
-        App.setupNavigation();
+    // Setup navigation using event delegation
+    App.setupNavigation();
 
-        // Setup screen transitions
-        App.setupScreenTransitions();
+    // Setup screen transitions
+    App.setupScreenTransitions();
 
-        // Setup back buttons
-        App.setupBackButtons();
+    // Setup back buttons
+    App.setupBackButtons();
 
-        // Load settings
-        App.loadSettings();
+    // Load settings
+    App.loadSettings();
 
-        // Setup Android back button handling
-        App.setupAndroidBackButton();
+    // 🔔 Ask notification permission
+    if ("Notification" in window) {
+        Notification.requestPermission()
+            .then(permission => {
+                console.log(
+                    "[Bondly] Notification permission:",
+                    permission
+                );
+            });
+    }
 
-        App.navigateTo('home');
-    },
+    // Setup Android back button handling
+    App.setupAndroidBackButton();
+
+    App.navigateTo('home');
+},
     
     // Setup navigation using event delegation
     setupNavigation: () => {
@@ -496,7 +507,7 @@ window.addEventListener('load', () => {
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('./sw.js')
             .then((registration) => {
                 console.log('[Bondly] Service Worker registered:', registration.scope);
             })
@@ -654,3 +665,4 @@ window.addEventListener('appinstalled', () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = App;
 }
+
