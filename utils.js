@@ -31,10 +31,10 @@ const Utils = {
     // Get greeting based on time of day
     getGreeting: () => {
         const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning ☀️';
-        if (hour < 17) return 'Good afternoon 🌤️';
-        if (hour < 21) return 'Good evening 🌙';
-        return 'Good night 🌃';
+        if (hour >= 5 && hour < 12) return 'Good morning ☀️';
+        if (hour >= 12 && hour < 17) return 'Good afternoon 🌤️';
+        if (hour >= 17 && hour < 21) return 'Good evening 🌙';
+        return 'Good night �';
     },
     
     // Truncate text
@@ -229,6 +229,14 @@ const Utils = {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#x27;')
             .trim();
+    },
+
+    // Decode HTML entities for display
+    decodeHTML: (input) => {
+        if (typeof input !== 'string') return input;
+        const textArea = document.createElement('textarea');
+        textArea.innerHTML = input;
+        return textArea.value;
     },
     
     // Parse comma-separated tags

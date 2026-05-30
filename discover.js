@@ -22,49 +22,76 @@ const Discover = {
     loadUsers: async () => {
         if (!Auth.currentUser) return;
         if (!FirebaseService.isInitialized()) return;
-        
+
         const db = FirebaseService.getDb();
         const userId = Auth.currentUser.uid;
         const resultsContainer = document.getElementById('discover-results');
-        
+
         Utils.showLoading('Discovering people...');
-        
+
         try {
             // Get current user data for matching
             const userDoc = await db.collection('users').doc(userId).get();
             const userData = userDoc.data();
-            
+
+            // Get current user's friends to exclude them
+            const friendsSnapshot = await db.collection('friends')
+                .where('participants', 'array-contains', userId)
+                .get();
+
+            const friendIds = new Set();
+            friendsSnapshot.forEach(doc => {
+                const participants = doc.data().participants;
+                participants.forEach(p => {
+                    if (p !== userId) friendIds.add(p);
+                });
+            });
+
+            // Get current user's blocked users to exclude them
+            const blockedSnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', userId)
+                .get();
+
+            const blockedIds = new Set();
+            blockedSnapshot.forEach(doc => {
+                blockedIds.add(doc.data().blocked);
+            });
+
             // Build query based on current filter
             let query = db.collection('users').where('uid', '!=', userId);
-            
+
             // Apply specific filter to query
             if (Discover.currentFilter === 'deepmode') {
                 query = query.where('deepMode', '==', true);
             }
-            
+
             // Get users
             const usersSnapshot = await query.limit(50).get();
-            
+
             const users = [];
-            
+
             usersSnapshot.forEach(doc => {
-                users.push(doc.data());
+                const user = doc.data();
+                // Exclude friends and blocked users from Discover
+                if (!friendIds.has(user.uid) && !blockedIds.has(user.uid)) {
+                    users.push(user);
+                }
             });
-            
+
             // Calculate match scores
             const usersWithScores = users.map(user => ({
                 ...user,
                 matchScore: Utils.calculateMatchScore(userData, user)
             }));
-            
+
             // Sort by match score
             usersWithScores.sort((a, b) => b.matchScore - a.matchScore);
-            
+
             Discover.users = usersWithScores;
-            
+
             // Apply filters and search
             Discover.renderResults();
-            
+
         } catch (error) {
             console.error('Error loading users:', error);
             resultsContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500);">Unable to load users</p>';

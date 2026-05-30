@@ -10,12 +10,40 @@ const Settings = {
     },
     
     // Load dark mode setting
-    loadDarkMode: () => {
+    loadDarkMode: async () => {
         const darkMode = Utils.storage.get('darkMode');
         const toggle = document.getElementById('dark-mode-toggle');
-        
-        if (toggle) {
-            toggle.checked = darkMode || false;
+
+        // Load from Firebase if available
+        if (Auth.currentUser && FirebaseService.isInitialized()) {
+            try {
+                const db = FirebaseService.getDb();
+                const doc = await db.collection('users').doc(Auth.currentUser.uid).get();
+                const userData = doc.data();
+
+                if (userData?.darkMode !== undefined) {
+                    if (toggle) {
+                        toggle.checked = userData.darkMode;
+                    }
+                    document.body.classList.toggle('dark-mode', userData.darkMode);
+                    Utils.storage.set('darkMode', userData.darkMode);
+                } else {
+                    if (toggle) {
+                        toggle.checked = darkMode || false;
+                    }
+                    document.body.classList.toggle('dark-mode', darkMode);
+                }
+            } catch (error) {
+                console.error('[Bondly] Error loading dark mode:', error);
+                if (toggle) {
+                    toggle.checked = darkMode || false;
+                }
+                document.body.classList.toggle('dark-mode', darkMode);
+            }
+        } else {
+            if (toggle) {
+                toggle.checked = darkMode || false;
+            }
             document.body.classList.toggle('dark-mode', darkMode);
         }
     },
@@ -49,12 +77,38 @@ const Settings = {
     },
     
     // Load notification settings
-    loadNotificationSettings: () => {
+    loadNotificationSettings: async () => {
         const notifications = Utils.storage.get('notifications');
         const toggle = document.getElementById('notifications-toggle');
-        
-        if (toggle) {
-            toggle.checked = notifications !== false;
+
+        // Load from Firebase if available
+        if (Auth.currentUser && FirebaseService.isInitialized()) {
+            try {
+                const db = FirebaseService.getDb();
+                const doc = await db.collection('users').doc(Auth.currentUser.uid).get();
+                const userData = doc.data();
+
+                if (userData?.notificationSettings) {
+                    const settings = userData.notificationSettings;
+                    if (toggle) {
+                        toggle.checked = settings.messages !== false;
+                    }
+                    Utils.storage.set('notifications', settings.messages !== false);
+                } else {
+                    if (toggle) {
+                        toggle.checked = notifications !== false;
+                    }
+                }
+            } catch (error) {
+                console.error('[Bondly] Error loading notification settings:', error);
+                if (toggle) {
+                    toggle.checked = notifications !== false;
+                }
+            }
+        } else {
+            if (toggle) {
+                toggle.checked = notifications !== false;
+            }
         }
     },
     
@@ -84,9 +138,26 @@ const Settings = {
     },
     
     // Save dark mode
-    saveDarkMode: (enabled) => {
+    saveDarkMode: async (enabled) => {
         document.body.classList.toggle('dark-mode', enabled);
         Utils.storage.set('darkMode', enabled);
+
+        if (enabled) {
+            console.log('[Bondly] Dark mode applied');
+        }
+
+        // Persist to Firebase
+        if (Auth.currentUser && FirebaseService.isInitialized()) {
+            try {
+                const db = FirebaseService.getDb();
+                await db.collection('users').doc(Auth.currentUser.uid).update({
+                    darkMode: enabled
+                });
+                console.log('[Bondly] Settings saved: dark mode');
+            } catch (error) {
+                console.error('[Bondly] Error saving dark mode to Firebase:', error);
+            }
+        }
     },
     
     // Save deep mode
@@ -106,11 +177,28 @@ const Settings = {
     },
     
     // Save notification settings
-    saveNotificationSettings: (enabled) => {
+    saveNotificationSettings: async (enabled) => {
         Utils.storage.set('notifications', enabled);
-        
+
         if (enabled) {
-            Notifications.requestPermission();
+            await Notifications.requestPermission();
+        }
+
+        // Persist to Firebase
+        if (Auth.currentUser && FirebaseService.isInitialized()) {
+            try {
+                const db = FirebaseService.getDb();
+                await db.collection('users').doc(Auth.currentUser.uid).update({
+                    notificationSettings: {
+                        messages: enabled,
+                        friendRequests: enabled,
+                        reactions: enabled
+                    }
+                });
+                console.log('[Bondly] Settings saved: notifications');
+            } catch (error) {
+                console.error('[Bondly] Error saving notification settings to Firebase:', error);
+            }
         }
     },
     

@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#7BAFD4">
     <meta name="description" content="Bondly - Find Your People. Real conversations. Real friendships.">
     <title>Bondly 💙🌍 - Find Your People</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,11 +15,7 @@
 <body>
     <!-- App Container -->
     <div id="app">
-        <!-- Demo Mode Banner -->
-        <div id="demo-banner" class="demo-banner hidden">
-            <span>⚠️ Demo Mode: Firebase not configured. Add your Firebase credentials in firebase.js to enable full functionality.</span>
-            <button onclick="document.getElementById('demo-banner').classList.add('hidden')">✕</button>
-        </div>
+        
         
         <!-- Auth Screen -->
         <div id="auth-screen" class="screen active">
@@ -149,86 +146,10 @@
                         <span class="activity-count" id="matches-count">0</span>
                         <span class="activity-label">Matches</span>
                     </div>
-                    <div class="activity-card" id="study-buddies-card">
-                        <span class="activity-icon">📚</span>
-                        <span class="activity-count" id="study-count">0</span>
-                        <span class="activity-label">Study</span>
-                    </div>
-                </div>
-                
-                <!-- Daily Conversation Prompt -->
-                <div class="card prompt-card">
-                    <div class="card-header">
-                        <span class="card-icon">💭</span>
-                        <h3>Daily Conversation Prompt</h3>
-                    </div>
-                    <p class="prompt-text" id="daily-prompt">What belief changed your life?</p>
-                </div>
-                
-                <!-- Recommended Connections -->
-                <div class="section">
-                    <h2>Recommended Connections</h2>
-                    <div id="recommendations-list" class="recommendations-list">
-                        <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
-                            Sign in to see recommendations
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <!-- Navigation Bar -->
-            <nav class="nav-bar">
-                <div class="nav-item active" data-screen="home">
-                    <span class="nav-icon">🏠</span>
-                    <span class="nav-label">Home</span>
-                </div>
-                <div class="nav-item" data-screen="discover">
-                    <span class="nav-icon">🔍</span>
-                    <span class="nav-label">Discover</span>
-                </div>
-                <div class="nav-item" data-screen="chats">
-                    <span class="nav-icon">💬</span>
-                    <span class="nav-label">Chats</span>
-                    <span class="nav-badge" id="chats-badge"></span>
-                </div>
-                <div class="nav-item" data-screen="friends">
-                    <span class="nav-icon">🫂</span>
-                    <span class="nav-label">Friends</span>
-                    <span class="nav-badge" id="friends-badge"></span>
-                </div>
-                <div class="nav-item" data-screen="profile">
-                    <span class="nav-icon">👤</span>
-                    <span class="nav-label">Profile</span>
-                </div>
-            </nav>
-            
-            <!-- Home Screen -->
-            <div id="home-screen" class="content-screen active">
-                <div class="screen-header">
-                    <h1 id="greeting">Good evening 🌙</h1>
-                    <p class="subtitle">Ready to connect?</p>
-                </div>
-                
-                <!-- Activity Cards -->
-                <div class="activity-grid">
-                    <div class="activity-card" id="unread-messages-card">
-                        <span class="activity-icon">💬</span>
-                        <span class="activity-count" id="unread-count">0</span>
-                        <span class="activity-label">Unread</span>
-                    </div>
-                    <div class="activity-card" id="friend-requests-card">
-                        <span class="activity-icon">🫂</span>
-                        <span class="activity-count" id="requests-count">0</span>
-                        <span class="activity-label">Requests</span>
-                    </div>
-                    <div class="activity-card" id="new-matches-card">
-                        <span class="activity-icon">🌍</span>
-                        <span class="activity-count" id="matches-count">0</span>
-                        <span class="activity-label">Matches</span>
-                    </div>
-                    <div class="activity-card" id="study-buddies-card">
-                        <span class="activity-icon">📚</span>
-                        <span class="activity-count" id="study-count">0</span>
-                        <span class="activity-label">Study</span>
+                    <div class="activity-card" id="blocked-users-card">
+                        <span class="activity-icon">�</span>
+                        <span class="activity-count" id="blocked-count">0</span>
+                        <span class="activity-label">Blocked</span>
                     </div>
                 </div>
                 
@@ -333,10 +254,14 @@
             
             <!-- Profile Screen -->
             <div id="profile-screen" class="content-screen hidden">
+                <div class="screen-header">
+                    <button class="back-btn" id="profile-back-btn">← Back</button>
+                    <h1>Profile</h1>
+                </div>
                 <div class="profile-header">
                     <div class="profile-avatar">
                         <img id="profile-avatar-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%237BAFD4' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='40' text-anchor='middle' dy='.3em' fill='white'%3E👤%3C/text%3E%3C/svg%3E" alt="Profile">
-                        <button class="avatar-edit-btn">📷</button>
+                        <button class="avatar-edit-btn" id="profile-avatar-edit-btn">📷</button>
                     </div>
                     <h1 id="profile-name">Your Name</h1>
                     <p id="profile-username">@username</p>
@@ -361,27 +286,49 @@
                 
                 <!-- Profile Details -->
                 <div class="profile-details">
+                    <div class="detail-section" id="profile-country-section">
+                        <h3>🌍 Country</h3>
+                        <p id="profile-country" class="detail-text"></p>
+                    </div>
+
+                    <div class="detail-section" id="profile-age-section">
+                        <h3>🎂 Age Range</h3>
+                        <p id="profile-age" class="detail-text"></p>
+                    </div>
+
+                    <div class="detail-section" id="profile-pronouns-section">
+                        <h3>🏷️ Pronouns</h3>
+                        <p id="profile-pronouns" class="detail-text"></p>
+                    </div>
+
                     <div class="detail-section">
                         <h3>🌍 Languages</h3>
                         <div id="profile-languages" class="tags-container">
                             <!-- Dynamic content -->
                         </div>
                     </div>
-                    
+
+                    <div class="detail-section" id="profile-learning-section">
+                        <h3>📚 Learning Goals</h3>
+                        <div id="profile-learning" class="tags-container">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
                     <div class="detail-section">
                         <h3>🎯 Interests</h3>
                         <div id="profile-interests" class="tags-container">
                             <!-- Dynamic content -->
                         </div>
                     </div>
-                    
+
                     <div class="detail-section">
                         <h3>✨ Personality</h3>
                         <div id="profile-personality" class="tags-container">
                             <!-- Dynamic content -->
                         </div>
                     </div>
-                    
+
                     <div class="detail-section">
                         <h3>🫂 Looking For</h3>
                         <div id="profile-goals" class="tags-container">
@@ -415,7 +362,7 @@
         <!-- Chat Screen -->
         <div id="chat-screen" class="screen hidden">
             <div class="chat-header">
-                <button class="back-btn" id="chat-back-btn">←</button>
+                <button class="back-btn" id="chat-back-btn">← Back</button>
                 <div class="chat-user-info">
                     <img id="chat-user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect fill='%237BAFD4' width='40' height='40'/%3E%3Ctext x='20' y='20' font-size='20' text-anchor='middle' dy='.3em' fill='white'%3E👤%3C/text%3E%3C/svg%3E" alt="User">
                     <div class="chat-user-details">
@@ -433,17 +380,92 @@
             
             <!-- Message Input -->
             <div class="message-input-container">
-                <button class="icon-btn" id="attach-btn">📎</button>
-                <input type="text" id="message-input" placeholder="Type a message...">
-                <button class="icon-btn" id="emoji-btn">😊</button>
+
+    <div class="attach-wrapper">
+
+        <button class="icon-btn" id="attach-btn">
+            📎
+        </button>
+
+        <!-- Attachment Menu -->
+        <div id="attachment-menu" class="attachment-menu hidden">
+
+            <div class="attachment-menu-item"
+                 onclick="Messaging.handleAttachmentClick('photo')">
+                <span>📷</span>
+                <span>Photo</span>
+            </div>
+
+            <div class="attachment-menu-item"
+                 onclick="Messaging.handleAttachmentClick('video')">
+                <span>🎥</span>
+                <span>Video</span>
+            </div>
+
+            <div class="attachment-menu-item"
+                 onclick="Messaging.handleAttachmentClick('file')">
+                <span>📄</span>
+                <span>File</span>
+            </div>
+
+        </div>
+
+    </div>
+                <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                <button class="icon-btn" id="voice-btn">🎤</button>
                 <button class="send-btn" id="send-message-btn">💙</button>
+            </div>
+
+            <!-- Attachment Menu -->
+            <div id="attachment-menu" class="attachment-menu">
+                <div class="attachment-menu-item" onclick="Messaging.handleAttachmentClick('photo')">
+                    <span class="attachment-icon">📷</span>
+                    <span class="attachment-label">Photo</span>
+                </div>
+                <div class="attachment-menu-item" onclick="Messaging.handleAttachmentClick('video')">
+                    <span class="attachment-icon">🎥</span>
+                    <span class="attachment-label">Video</span>
+                </div>
+                <div class="attachment-menu-item" onclick="Messaging.handleAttachmentClick('file')">
+                    <span class="attachment-icon">📄</span>
+                    <span class="attachment-label">File</span>
+                </div>
+            </div>
+
+            <!-- Hidden upload input -->
+<input
+    type="file"
+    id="photo-upload"
+    accept="image/*"
+    hidden
+>
+
+            <!-- Message Action Menu -->
+            <div id="message-action-menu" class="message-action-menu hidden">
+                <!-- Emoji Reactions -->
+                <div class="emoji-reactions">
+                    <button class="emoji-btn" data-emoji="❤️">❤️</button>
+                    <button class="emoji-btn" data-emoji="😂">😂</button>
+                    <button class="emoji-btn" data-emoji="😮">😮</button>
+                    <button class="emoji-btn" data-emoji="😢">😢</button>
+                    <button class="emoji-btn" data-emoji="👍">👍</button>
+                    <button class="emoji-btn" data-emoji="👎">👎</button>
+                </div>
+
+                <!-- Action Options -->
+                <div class="message-actions">
+                    <button class="action-btn" data-action="reply">Reply</button>
+                    <button class="action-btn" data-action="forward">Forward</button>
+                    <button class="action-btn" data-action="copy">Copy</button>
+                    <button class="action-btn" data-action="delete">Delete</button>
+                </div>
             </div>
         </div>
         
         <!-- Settings Screen -->
         <div id="settings-screen" class="screen hidden">
             <div class="screen-header">
-                <button class="back-btn" id="settings-back-btn">←</button>
+                <button class="back-btn" id="settings-back-btn">← Back</button>
                 <h1>Settings</h1>
             </div>
             
@@ -519,7 +541,7 @@
         <!-- Edit Profile Screen -->
         <div id="edit-profile-screen" class="screen hidden">
             <div class="screen-header">
-                <button class="back-btn" id="edit-profile-back-btn">←</button>
+                <button class="back-btn" id="edit-profile-back-btn">← Back</button>
                 <h1>Edit Profile</h1>
             </div>
             
@@ -588,7 +610,7 @@
         <!-- Notification Settings Screen -->
         <div id="notification-settings-screen" class="screen hidden">
             <div class="screen-header">
-                <button class="back-btn" id="notification-settings-back-btn">←</button>
+                <button class="back-btn" id="notification-settings-back-btn">← Back</button>
                 <h1>Notifications</h1>
             </div>
             
@@ -646,7 +668,7 @@
         <!-- User Profile Screen (viewing other user) -->
         <div id="user-profile-screen" class="screen hidden">
             <div class="screen-header">
-                <button class="back-btn" id="user-profile-back-btn">←</button>
+                <button class="back-btn" id="user-profile-back-btn">← Back</button>
                 <h1>Profile</h1>
             </div>
             
@@ -697,5 +719,27 @@
     <script src="settings.js"></script>
     <script src="search.js"></script>
     <script src="achievements.js"></script>
+
+    <!-- Friend Requests Mini Modal -->
+    <div id="requests-modal" class="mini-modal hidden">
+        <div class="mini-modal-content">
+            <div class="mini-modal-header">
+                <h3>Friend Requests</h3>
+                <button class="close-modal-btn" onclick="Home.closeRequestsModal()">✕</button>
+            </div>
+            <div id="requests-modal-list" class="mini-modal-list"></div>
+        </div>
+    </div>
+
+    <!-- Blocked Users Mini Modal -->
+    <div id="blocked-modal" class="mini-modal hidden">
+        <div class="mini-modal-content">
+            <div class="mini-modal-header">
+                <h3>Blocked Users</h3>
+                <button class="close-modal-btn" onclick="Home.closeBlockedModal()">✕</button>
+            </div>
+            <div id="blocked-modal-list" class="mini-modal-list"></div>
+        </div>
+    </div>
 </body>
 </html>

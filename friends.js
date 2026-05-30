@@ -33,13 +33,19 @@ const Friends = {
             const requestsSnapshot = await db.collection('friendRequests')
                 .where('to', '==', userId)
                 .where('status', '==', 'pending')
-                .orderBy('createdAt', 'desc')
                 .get();
-            
+
             Friends.friendRequests = [];
-            
+
             requestsSnapshot.forEach(doc => {
                 Friends.friendRequests.push({ id: doc.id, ...doc.data() });
+            });
+
+            // Sort client-side by createdAt
+            Friends.friendRequests.sort((a, b) => {
+                const timeA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                const timeB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                return timeB - timeA;
             });
             
             if (Friends.friendRequests.length > 0) {
@@ -80,24 +86,33 @@ const Friends = {
     loadFriends: async () => {
         if (!Auth.currentUser) return;
         if (!FirebaseService.isInitialized()) return;
-        
+
         const db = FirebaseService.getDb();
         const userId = Auth.currentUser.uid;
         const friendsList = document.getElementById('friends-list');
-        
+
         try {
             const friendsSnapshot = await db.collection('friends')
                 .where('participants', 'array-contains', userId)
                 .get();
-            
+
             Friends.friends = [];
-            
+
             friendsSnapshot.forEach(doc => {
                 const friendData = doc.data();
                 const friendId = friendData.participants.find(p => p !== userId);
                 Friends.friends.push({ id: doc.id, friendId, ...friendData });
             });
-            
+
+            // Deduplicate by friendId
+            const uniqueFriends = new Map();
+            Friends.friends.forEach(friend => {
+                if (!uniqueFriends.has(friend.friendId)) {
+                    uniqueFriends.set(friend.friendId, friend);
+                }
+            });
+            Friends.friends = Array.from(uniqueFriends.values());
+
             // Load user data for each friend
             const friendsWithUsers = await Promise.all(
                 Friends.friends.map(async (friend) => {
@@ -106,27 +121,35 @@ const Friends = {
                     return { ...friend, userData };
                 })
             );
-            
+
             // Filter by category
             const filteredFriends = Friends.filterByCategory(friendsWithUsers);
-            
+
+            console.log('[Bondly] Friends loaded:', filteredFriends.length);
+
             if (filteredFriends.length > 0) {
                 friendsList.innerHTML = filteredFriends.map(friend => `
-                    <div class="friend-item" onclick="App.openChat('${friend.userData.uid}', '${friend.userData.displayName}', '${friend.userData.avatar}')">
-                        <img src="${friend.userData.avatar}" alt="${friend.userData.displayName}" class="chat-avatar ${friend.userData.online ? '' : 'offline'}">
-                        <div class="chat-info">
-                            <div class="chat-name">${friend.userData.displayName} ${friend.favorite ? '⭐' : ''}</div>
-                            <div class="chat-preview">${friend.userData.online ? 'Online' : 'Last active ' + Utils.formatTime(friend.userData.lastActive?.toDate())}</div>
+                    <div class="friend-item">
+                        <div class="friend-main" onclick="App.openChat('${friend.userData.uid}', '${friend.userData.displayName}', '${friend.userData.avatar}')">
+                            <img src="${friend.userData.avatar}" alt="${friend.userData.displayName}" class="chat-avatar ${friend.userData.online ? '' : 'offline'}">
+                            <div class="chat-info">
+                                <div class="chat-name">${friend.userData.displayName} ${friend.favorite ? '⭐' : ''}</div>
+                                <div class="chat-preview">${friend.userData.online ? 'Online' : 'Last active ' + Utils.formatTime(friend.userData.lastActive?.toDate())}</div>
+                            </div>
+                            <div class="chat-meta">
+                                ${friend.category ? `<span class="tag">${friend.category}</span>` : ''}
+                            </div>
                         </div>
-                        <div class="chat-meta">
-                            ${friend.category ? `<span class="tag">${friend.category}</span>` : ''}
+                        <div class="friend-actions">
+                            <button class="friend-action-btn remove-btn" onclick="Friends.removeFriend('${friend.userData.uid}')">Remove</button>
+                            <button class="friend-action-btn block-btn" onclick="Friends.blockUser('${friend.userData.uid}')">Block</button>
                         </div>
                     </div>
                 `).join('');
             } else {
                 friendsList.innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">No friends yet. Discover new people to connect with!</p>';
             }
-            
+
         } catch (error) {
             console.error('Error loading friends:', error);
             friendsList.innerHTML = '<p style="text-align: center; color: var(--gray-500);">Unable to load friends</p>';
@@ -164,19 +187,21 @@ const Friends = {
             Utils.showToast('Firebase not configured');
             return;
         }
-        
+
         const db = FirebaseService.getDb();
         const userId = Auth.currentUser.uid;
-        
+
+        console.log('[Bondly] Friend accepted:', fromUserId);
+
         Utils.showLoading('Accepting request...');
-        
+
         try {
             // Update request status
             await db.collection('friendRequests').doc(requestId).update({
                 status: 'accepted',
                 respondedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             // Create friend relationship
             await db.collection('friends').add({
                 participants: [userId, fromUserId],
@@ -185,34 +210,42 @@ const Friends = {
                 nickname: null,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
+            console.log('[Bondly] Added to friends:', fromUserId);
+
             // Update user stats
             await db.collection('userStats').doc(userId).update({
                 friendsCount: firebase.firestore.FieldValue.increment(1)
             });
-            
+
             await db.collection('userStats').doc(fromUserId).update({
                 friendsCount: firebase.firestore.FieldValue.increment(1)
             });
-            
+
             // Send notification
             await Notifications.sendNotification(fromUserId, {
                 type: 'friend_accepted',
                 from: userId,
                 message: 'accepted your friend request'
             });
-            
+
             // Check for first friend achievement
             await Achievements.checkAchievement('first_friend');
-            
+
             Utils.showToast('Friend request accepted!');
             Mobile.hapticFeedback('success');
-            
+
             // Reload
             Friends.loadFriendRequests();
             Friends.loadFriends();
             Home.loadActivity();
-            
+
+            // Refresh Discover to remove accepted user
+            if (typeof Discover !== 'undefined' && Discover.refresh) {
+                Discover.refresh();
+                console.log('[Bondly] Removed from discover:', fromUserId);
+            }
+
         } catch (error) {
             console.error('Error accepting request:', error);
             Utils.showToast('Error accepting request');
@@ -290,47 +323,129 @@ const Friends = {
             Utils.showToast('Firebase not configured');
             return;
         }
-        
+
         const db = FirebaseService.getDb();
         const userId = Auth.currentUser.uid;
-        
-        if (!confirm('Are you sure you want to remove this friend?')) return;
-        
+
+        if (!confirm('Remove this friend?')) return;
+
+        console.log('[Bondly] Friend removed:', friendId);
+
         Utils.showLoading('Removing friend...');
-        
+
         try {
             // Find and delete friend relationship
             const friendsSnapshot = await db.collection('friends')
                 .where('participants', 'array-contains', userId)
                 .get();
-            
+
             const batch = db.batch();
-            
+
             friendsSnapshot.forEach(doc => {
                 const data = doc.data();
                 if (data.participants.includes(friendId)) {
                     batch.delete(doc.ref);
                 }
             });
-            
+
             await batch.commit();
-            
+
             // Update user stats
             await db.collection('userStats').doc(userId).update({
                 friendsCount: firebase.firestore.FieldValue.increment(-1)
             });
-            
+
             await db.collection('userStats').doc(friendId).update({
                 friendsCount: firebase.firestore.FieldValue.increment(-1)
             });
-            
+
+            console.log('[Bondly] Returned to discover');
+
             Utils.showToast('Friend removed');
-            
+            Mobile.hapticFeedback('light');
+
             Friends.loadFriends();
-            
+            Home.loadActivity(); // Update counts
+            if (typeof Discover !== 'undefined' && Discover.refresh) {
+                Discover.refresh(); // Refresh Discover to show user again
+            }
+
         } catch (error) {
             console.error('Error removing friend:', error);
             Utils.showToast('Error removing friend');
+        } finally {
+            Utils.hideLoading();
+        }
+    },
+
+    // Block user
+    blockUser: async (friendId) => {
+        if (!Auth.currentUser) return;
+        if (!FirebaseService.isInitialized()) {
+            Utils.showToast('Firebase not configured');
+            return;
+        }
+
+        const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
+
+        if (!confirm('Block this user?\nYou will no longer be able to message each other.')) return;
+
+        console.log('[Bondly] User blocked:', friendId);
+
+        Utils.showLoading('Blocking user...');
+
+        try {
+            // Remove friend relationship
+            const friendsSnapshot = await db.collection('friends')
+                .where('participants', 'array-contains', userId)
+                .get();
+
+            const batch = db.batch();
+
+            friendsSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.participants.includes(friendId)) {
+                    batch.delete(doc.ref);
+                }
+            });
+
+            // Add to blocked users (both directions)
+            batch.set(db.collection('blockedUsers').doc(), {
+                blocker: userId,
+                blocked: friendId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            batch.set(db.collection('blockedUsers').doc(), {
+                blocker: friendId,
+                blocked: userId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            await batch.commit();
+
+            // Update user stats
+            await db.collection('userStats').doc(userId).update({
+                friendsCount: firebase.firestore.FieldValue.increment(-1)
+            });
+
+            await db.collection('userStats').doc(friendId).update({
+                friendsCount: firebase.firestore.FieldValue.increment(-1)
+            });
+
+            Utils.showToast('User blocked');
+            Mobile.hapticFeedback('light');
+
+            Friends.loadFriends();
+            Home.loadActivity(); // Update counts
+            if (typeof Discover !== 'undefined' && Discover.refresh) {
+                Discover.refresh(); // Refresh Discover to remove user
+            }
+
+        } catch (error) {
+            console.error('Error blocking user:', error);
+            Utils.showToast('Error blocking user');
         } finally {
             Utils.hideLoading();
         }

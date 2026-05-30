@@ -1,0 +1,64 @@
+{
+  "name": "Bondly",
+  "short_name": "Bondly",
+  "description": "Find Your People. Real conversations. Real friendships.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#7BAFD4",
+  "theme_color": "#7BAFD4",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/7BAFD4/FFFFFF?text=B",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/7BAFD4/FFFFFF?text=B",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "communication"],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Go to home screen",
+      "url": "/",
+      "icons": [
+        {
+          "src": "https://via.placeholder.com/96x96/7BAFD4/FFFFFF?text=🏠",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Discover",
+      "short_name": "Discover",
+      "description": "Discover new people",
+      "url": "/?screen=discover",
+      "icons": [
+        {
+          "src": "https://via.placeholder.com/96x96/7BAFD4/FFFFFF?text=🔍",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Chats",
+      "short_name": "Chats",
+      "description": "View your conversations",
+      "url": "/?screen=chats",
+      "icons": [
+        {
+          "src": "https://via.placeholder.com/96x96/7BAFD4/FFFFFF?text=💬",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

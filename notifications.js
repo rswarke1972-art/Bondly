@@ -47,34 +47,104 @@ const Notifications = {
     // Send notification to user
     sendNotification: async (userId, notificationData) => {
         if (!FirebaseService.isInitialized()) return;
-        
+
         const db = FirebaseService.getDb();
-        
+
         try {
-            // Check if user has notifications enabled
-            const settings = Utils.storage.get('notifications');
-            if (settings === false) return;
-            
+            // Check if user has notifications enabled in settings
+            const userDoc = await db.collection('users').doc(userId).get();
+            const userData = userDoc.data();
+            const notificationSettings = userData?.notificationSettings || {};
+
+            // Check if specific notification type is enabled
+            if (notificationData.type === 'message' && notificationSettings.messages === false) {
+                console.log('[Bondly] Message notifications disabled for user');
+                return;
+            }
+            if (notificationData.type === 'friend_request' && notificationSettings.friendRequests === false) {
+                console.log('[Bondly] Friend request notifications disabled for user');
+                return;
+            }
+            if (notificationData.type === 'reaction' && notificationSettings.reactions === false) {
+                console.log('[Bondly] Reaction notifications disabled for user');
+                return;
+            }
+
             // Add notification to user's notifications collection
             await db.collection('users').doc(userId).collection('notifications').add({
                 ...notificationData,
                 read: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            
+
             // Update unread count
             await db.collection('users').doc(userId).update({
                 unreadNotifications: firebase.firestore.FieldValue.increment(1)
             });
-            
+
             // Show in-app notification if user is online
             if (Auth.currentUser?.uid === userId) {
                 Notifications.showInAppNotification(notificationData);
             }
-            
+
+            // Show browser notification if permission granted
+            if (Notification.permission === 'granted') {
+                Notifications.showBrowserNotification(notificationData);
+            }
+
+            console.log('[Bondly] Notification sent:', notificationData.type);
+
         } catch (error) {
-            console.error('Error sending notification:', error);
+            console.error('[Bondly] Error sending notification:', error);
         }
+    },
+
+    // Show browser notification
+    showBrowserNotification: (notificationData) => {
+        if (Notification.permission !== 'granted') return;
+
+        let title = 'Bondly';
+        let body = notificationData.message || 'New notification';
+        let icon = '/favicon.ico';
+
+        switch (notificationData.type) {
+            case 'message':
+                title = 'New Message';
+                body = `New message from ${notificationData.senderName || 'Someone'}`;
+                break;
+            case 'friend_request':
+                title = 'Friend Request';
+                body = `New friend request from ${notificationData.senderName || 'Someone'}`;
+                break;
+            case 'friend_accepted':
+                title = 'Friend Accepted';
+                body = `${notificationData.senderName || 'Someone'} accepted your request`;
+                break;
+            case 'reaction':
+                title = 'Reaction';
+                body = `${notificationData.senderName || 'Someone'} reacted ${notificationData.emoji || ''} to your message`;
+                break;
+            default:
+                title = notificationData.title || 'Bondly';
+                body = notificationData.message || 'New notification';
+        }
+
+        const notification = new Notification(title, {
+            body,
+            icon,
+            badge: icon,
+            tag: notificationData.type,
+            requireInteraction: false
+        });
+
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
+        };
+
+        setTimeout(() => {
+            notification.close();
+        }, 5000);
     },
     
     // Show in-app notification
