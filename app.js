@@ -502,12 +502,15 @@ if ('serviceWorker' in navigator) {
                 console.log('[Bondly] Service Worker registration failed:', error);
             });
     });
+} else {
+    console.log('[Bondly] Service Workers not supported');
 }
 
 // PWA Install Prompt Logic
 let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('[Bondly] beforeinstallprompt event fired');
     // Prevent Chrome 67 and earlier from automatically showing the prompt
     e.preventDefault();
 
@@ -527,9 +530,28 @@ window.addEventListener('beforeinstallprompt', (e) => {
     }
 });
 
+// Check if PWA is installable
+window.addEventListener('load', () => {
+    // Check if running as PWA
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    console.log('[Bondly] Running as PWA:', isInstalled);
+
+    // For iOS, show manual install instructions
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIOS && !isInstalled) {
+        console.log('[Bondly] iOS detected, showing manual install instructions');
+        setTimeout(() => {
+            App.showIOSInstallInstructions();
+        }, 5000);
+    }
+});
+
 // Show install prompt
 App.showInstallPrompt = () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+        console.log('[Bondly] No deferred prompt available');
+        return;
+    }
 
     const installModal = document.createElement('div');
     installModal.style.cssText = `
@@ -562,8 +584,11 @@ App.showInstallPrompt = () => {
     document.body.appendChild(installModal);
 
     document.getElementById('install-accept').addEventListener('click', async () => {
+        console.log('[Bondly] Install button clicked');
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
+
+        console.log('[Bondly] Install outcome:', outcome);
 
         if (outcome === 'accepted') {
             console.log('[Bondly] App installed');
@@ -574,6 +599,45 @@ App.showInstallPrompt = () => {
     });
 
     document.getElementById('install-dismiss').addEventListener('click', () => {
+        console.log('[Bondly] Install dismissed');
+        installModal.remove();
+    });
+};
+
+// Show iOS install instructions
+App.showIOSInstallInstructions = () => {
+    const installModal = document.createElement('div');
+    installModal.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        max-width: 90vw;
+        width: 320px;
+        text-align: center;
+    `;
+
+    installModal.innerHTML = `
+        <div style="margin-bottom: var(--spacing-md);">
+            <div style="font-size: 2rem; margin-bottom: var(--spacing-sm);">💙🌍</div>
+            <h3 style="margin-bottom: var(--spacing-xs);">Install Bondly</h3>
+            <p style="color: var(--gray-500); font-size: 0.875rem; margin-bottom: var(--spacing-sm);">
+                Tap the share button<br>
+                <span style="font-size: 1.5rem;">⎋</span><br>
+                Then "Add to Home Screen"
+            </p>
+        </div>
+        <button id="ios-install-dismiss" style="width: 100%; background: var(--gray-200); border: none; padding: var(--spacing-sm) var(--spacing-md); border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem;">Got it</button>
+    `;
+
+    document.body.appendChild(installModal);
+
+    document.getElementById('ios-install-dismiss').addEventListener('click', () => {
         installModal.remove();
     });
 };

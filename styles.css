@@ -160,6 +160,15 @@ body {
     overflow-x: hidden;
     background: var(--warm-cream);
     transition: transform var(--transition-normal), opacity var(--transition-normal);
+    -webkit-overflow-scrolling: touch;
+}
+
+#edit-profile-screen,
+#settings-screen,
+#user-profile-screen {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .screen.hidden {
@@ -1141,6 +1150,20 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    position: relative;
+    bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+    .profile-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--warm-cream);
+        padding: var(--spacing-md);
+        padding-bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom, 0px));
+    }
 }
 
 /* Chat Screen */
@@ -1430,6 +1453,27 @@ body {
     border-top: 1px solid var(--gray-200);
     position: sticky;
     bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
+    z-index: 100;
+}
+
+@media (max-width: 768px) {
+    .message-input-container {
+        padding: var(--spacing-sm);
+        padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+        gap: var(--spacing-xs);
+    }
+
+    .message-input-container input {
+        padding: var(--spacing-sm);
+        font-size: 0.875rem;
+    }
+
+    .send-btn {
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: 0.875rem;
+    }
 }
 
 .message-input-container input {
