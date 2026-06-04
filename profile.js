@@ -389,7 +389,7 @@ const Profile = {
                         <img src="${userData.avatar}" alt="${userData.displayName}">
                     </div>
                     <h1>${userData.displayName}</h1>
-                    <p>@${userData.username}</p>
+                    
                     <p class="profile-bio">${userData.bio || 'No bio yet'}</p>
                 </div>
                 
