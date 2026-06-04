@@ -10,10 +10,14 @@ const Messaging = {
     messagesListener: null,
     typingListener: null,
     typingTimeout: null,
+    presenceListener: null,
+    otherUserPresence: null,
     selectedMessage: null,
     longPressTimer: null,
     menuSetup: false,
     replyTarget: null,
+    forwardTargets: [],
+    forwardFriendsData: [],
     inputSetup: false,
 
     // Initialize messaging
@@ -218,16 +222,15 @@ if (voiceBtn) {
         }
     );
 
-    // Typing indicator
-    messageInput?.addEventListener(
-        'input',
-        Utils.debounce(
-            () => {
-                Messaging.sendTypingIndicator();
-            },
-            500
-        )
-    );
+    // Typing indicator - throttled to immediately trigger and update every 1.5 seconds while typing
+    let lastTypingTime = 0;
+    messageInput?.addEventListener('input', () => {
+        const now = Date.now();
+        if (now - lastTypingTime > 1500) {
+            lastTypingTime = now;
+            Messaging.sendTypingIndicator();
+        }
+    });
 
     // Mark setup as complete
     Messaging.inputSetup = true;
@@ -316,6 +319,7 @@ if (voiceBtn) {
         const sender = messageEl.dataset.sender;
         const text = messageEl.dataset.text;
         const type = messageEl.dataset.type;
+        const senderName = messageEl.dataset.senderName;
 
         console.log('[Bondly] Message selected:', { messageId, sender, text, type });
 
@@ -323,7 +327,13 @@ if (voiceBtn) {
             id: messageId,
             sender: sender,
             text: text,
-            type: type
+            type: type,
+            senderName: senderName,
+            imageUrl: messageEl.dataset.imageUrl || '',
+            fileUrl: messageEl.dataset.fileUrl || '',
+            fileName: messageEl.dataset.fileName || '',
+            voiceUrl: messageEl.dataset.voiceUrl || '',
+            duration: Number(messageEl.dataset.duration || 0)
         };
 
         const menu = document.getElementById('message-action-menu');
@@ -336,7 +346,7 @@ if (voiceBtn) {
 
         // Position menu near the message
         const menuWidth = 280;
-        const menuHeight = 200;
+        const menuHeight = 240;
 
         let menuX = x - menuWidth / 2;
         let menuY = y - menuHeight / 2;
@@ -474,15 +484,17 @@ if (voiceBtn) {
         switch (action) {
             case 'reply':
                 console.log('[Bondly] Reply target selected:', Messaging.selectedMessage);
-                Messaging.replyTarget = Messaging.selectedMessage;
-                Utils.showToast('Reply selected');
+                Messaging.showReplyPreview(Messaging.selectedMessage);
                 break;
             case 'forward':
                 console.log('[Bondly] Forward clicked');
-                Utils.showToast('Forward feature coming soon');
+                Messaging.openForwardModal(Messaging.selectedMessage);
                 break;
             case 'copy':
                 Messaging.copyMessage();
+                break;
+            case 'translate':
+                Messaging.translateMessage(Messaging.selectedMessage);
                 break;
             case 'delete':
                 Messaging.deleteMessage();
@@ -684,6 +696,22 @@ if (voiceBtn) {
                     console.error('Error loading messages:', error);
                 });
             
+            // Listen for other user's presence (RTDB-based)
+            if (Messaging.presenceListener) {
+                Messaging.presenceListener();
+            }
+            if (typeof Presence !== 'undefined') {
+                console.log('[Bondly Debug] Subscribing to other user presence:', userId);
+                Messaging.presenceListener = Presence.listenToUserPresence(userId, (presence) => {
+                    console.log('[Bondly Debug] Presence update for user:', userId, presence);
+                    Messaging.otherUserPresence = presence;
+                    const statusElement = document.getElementById('chat-user-status');
+                    if (statusElement && statusElement.textContent !== 'typing...') {
+                        Messaging.updateUserStatusUI(presence);
+                    }
+                });
+            }
+
             // Listen for typing indicator (Firestore-based)
             if (Messaging.typingListener) {
                 Messaging.typingListener();
@@ -695,7 +723,9 @@ if (voiceBtn) {
                 const typingDoc = db.collection('chats').doc(chatId).collection('typing').doc(userId);
 
                 Messaging.typingListener = typingDoc.onSnapshot((snapshot) => {
-                    const isTyping = snapshot.exists && snapshot.data().isTyping;
+                    const typingData = snapshot.exists ? snapshot.data() : null;
+                    const typedAt = typingData?.timestamp?.toMillis?.() || 0;
+                    const isTyping = Boolean(typingData?.isTyping) && (Date.now() - typedAt < 7000);
                     const statusElement = document.getElementById('chat-user-status');
 
                     if (statusElement) {
@@ -703,8 +733,8 @@ if (voiceBtn) {
                             statusElement.textContent = 'typing...';
                             statusElement.style.color = 'var(--soft-blue)';
                         } else {
-                            statusElement.textContent = 'Online';
-                            statusElement.style.color = 'var(--success)';
+                            // Revert to actual presence status
+                            Messaging.updateUserStatusUI(Messaging.otherUserPresence);
                         }
                     }
                 }, (error) => {
@@ -785,6 +815,7 @@ if (voiceBtn) {
             const isSent = msg.sender === currentUserId;
             const timestamp = msg.timestamp ? msg.timestamp.toDate() : new Date();
             const messageType = msg.type || 'text';
+            const senderName = msg.sender === currentUserId ? 'You' : (Messaging.currentChatUser?.displayName || 'User');
 
             let messageContent = '';
 
@@ -819,7 +850,7 @@ if (voiceBtn) {
 
     messageContent = `
         <a
-            href="${msg.fileUrl}"
+            href="${isPdf ? `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodeURIComponent(msg.fileUrl)}` : msg.fileUrl}"
             target="_blank"
             rel="noopener noreferrer"
             class="message-file"
@@ -829,21 +860,6 @@ if (voiceBtn) {
     `;
     break;
 }
-    messageContent = `
-        <a
-            href="${
-    isPdf
-    ? `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodeURIComponent(msg.fileUrl)}`
-    : msg.fileUrl
-}"
-target="_blank"
-            rel="noopener noreferrer"
-            class="message-file"
-        >
-            📄 ${msg.fileName}
-        </a>
-    `;
-    break;
 
     case 'voice':
         messageContent = `
@@ -855,8 +871,24 @@ target="_blank"
         break;
 
     default:
-        messageContent = msg.text || '';
+        messageContent = Utils.escapeHTML(msg.text || '');
 }
+
+            // Build reply quote HTML if this message is replying to another
+            let replyQuoteHtml = '';
+            if (msg.replyTo && msg.replyTo.id) {
+                const replyName = msg.replyTo.senderName || 'User';
+                const replyText = Messaging.getReplyPreviewText(msg.replyTo);
+                replyQuoteHtml = `
+                    <div class="reply-quote" onclick="Messaging.scrollToMessage('${msg.replyTo.id}')">
+                        <div class="reply-quote-bar"></div>
+                        <div class="reply-quote-info">
+                            <span class="reply-quote-name">${replyName}</span>
+                            <span class="reply-quote-text">${replyText}</span>
+                        </div>
+                    </div>
+                `;
+            }
 
             // Calculate message status indicator
             let statusIndicator = '';
@@ -870,14 +902,29 @@ target="_blank"
                 }
             }
 
+            // Escape text for data attribute to prevent XSS
+            const safeText = Utils.escapeHTML(msg.text || '');
+
             return `
-                <div class="message ${isSent ? 'sent' : 'received'}" data-type="${messageType}" data-message-id="${msg.id}" data-sender="${msg.sender}" data-text="${msg.text || ''}">
+                <div class="message ${isSent ? 'sent' : 'received'}"
+                    data-type="${messageType}"
+                    data-message-id="${msg.id}"
+                    data-sender="${msg.sender}"
+                    data-sender-name="${Utils.escapeHTML(senderName)}"
+                    data-text="${safeText}"
+                    data-image-url="${Utils.escapeHTML(msg.imageUrl || '')}"
+                    data-file-url="${Utils.escapeHTML(msg.fileUrl || '')}"
+                    data-file-name="${Utils.escapeHTML(msg.fileName || '')}"
+                    data-voice-url="${Utils.escapeHTML(msg.voiceUrl || '')}"
+                    data-duration="${msg.duration || 0}">
+                    ${replyQuoteHtml}
                     <div class="message-content">${messageContent}</div>
+                    ${msg.translation ? `<div class="message-translation">${Utils.escapeHTML(msg.translation.text || '')}</div>` : ''}
                     <div class="message-time">${Utils.formatMessageTime(timestamp)} ${statusIndicator}</div>
                     ${msg.edited ? '<span class="edited-badge">edited</span>' : ''}
                     ${msg.reactions && msg.reactions.length > 0 ? `
                         <div class="message-reactions">
-                            ${msg.reactions.map(r => `<span class="reaction">${r.emoji} ${r.count}</span>`).join('')}
+                            ${msg.reactions.map(r => `<span class="reaction">${r.emoji}</span>`).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -944,9 +991,8 @@ target="_blank"
         console.log('Message data:', { currentUserId, otherUserId, text });
 
         try {
-            // Add message with status tracking
-            await db.collection('chats').doc(Messaging.currentChatId)
-                .collection('messages').add({
+            // Build message object
+            const messageObj = {
                 sender: currentUserId,
                 text: text,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
@@ -959,7 +1005,23 @@ target="_blank"
                     delivered: false,
                     seen: false
                 }
-            });
+            };
+
+            // Attach reply metadata if replying
+            if (Messaging.replyTarget) {
+                messageObj.replyTo = {
+                    id: Messaging.replyTarget.id,
+                    text: Messaging.replyTarget.text || '',
+                    type: Messaging.replyTarget.type || 'text',
+                    sender: Messaging.replyTarget.sender,
+                    senderName: Messaging.replyTarget.senderName || 'User'
+                };
+                Messaging.cancelReply();
+            }
+
+            // Add message with status tracking
+            await db.collection('chats').doc(Messaging.currentChatId)
+                .collection('messages').add(messageObj);
 
             console.log('Message added to Firestore');
 
@@ -977,12 +1039,13 @@ target="_blank"
 
             // Clear input
             messageInput.value = '';
+            Messaging.clearTypingIndicator();
 
             // Send notification
             if (FirebaseService.isInitialized()) {
                 try {
                     const senderDoc = await db.collection('users').doc(currentUserId).get();
-                    const senderData = senderDoc.data();
+                    const senderData = Utils.sanitizeUser(senderDoc.data());
 
                     await Notifications.sendNotification(otherUserId, {
                         type: 'message',
@@ -1196,16 +1259,35 @@ stopVoiceRecording:
                 clearTimeout(Messaging.typingTimeout);
             }
 
-            // Clear typing status after 2 seconds
+            // Clear typing status after 3 seconds
             Messaging.typingTimeout = setTimeout(() => {
                 db.collection('chats').doc(Messaging.currentChatId)
                     .collection('typing').doc(currentUserId).set({
                     isTyping: false,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-            }, 2000);
+            }, 3000);
         } catch (error) {
             console.error('Error sending typing indicator (non-critical):', error);
+        }
+    },
+
+    clearTypingIndicator: () => {
+        if (!Messaging.currentChatId || !Auth.currentUser || !FirebaseService.isInitialized()) return;
+
+        try {
+            if (Messaging.typingTimeout) {
+                clearTimeout(Messaging.typingTimeout);
+                Messaging.typingTimeout = null;
+            }
+            FirebaseService.getDb().collection('chats').doc(Messaging.currentChatId)
+                .collection('typing').doc(Auth.currentUser.uid).set({
+                    isTyping: false,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            console.log('[Bondly] Typing indicator cleared');
+        } catch (error) {
+            console.error('Error clearing typing indicator (non-critical):', error);
         }
     },
     
@@ -1300,7 +1382,7 @@ stopVoiceRecording:
             // Send notification to original message sender (if not current user)
             if (messageData.sender !== currentUserId) {
                 const reactorDoc = await db.collection('users').doc(currentUserId).get();
-                const reactorData = reactorDoc.data();
+                const reactorData = Utils.sanitizeUser(reactorDoc.data());
 
                 await Notifications.sendNotification(messageData.sender, {
                     type: 'reaction',
@@ -1340,6 +1422,7 @@ stopVoiceRecording:
     
     // Cleanup listeners
     cleanup: () => {
+        Messaging.clearTypingIndicator();
         if (Messaging.messagesListener) {
             Messaging.messagesListener();
         }
@@ -1946,6 +2029,383 @@ await Messaging
         Utils.hideLoading();
     }
 },
+
+    // ========================================
+    // UPDATE USER STATUS UI (presence-based)
+    // ========================================
+    updateUserStatusUI: (presence) => {
+        const statusElement = document.getElementById('chat-user-status');
+        if (!statusElement) return;
+
+        if (!presence) {
+            statusElement.textContent = 'Offline';
+            statusElement.style.color = 'var(--gray-500)';
+            return;
+        }
+
+        const state = presence.state || 'offline';
+        switch (state) {
+            case 'online':
+                statusElement.textContent = 'Online';
+                statusElement.style.color = 'var(--success, #48BB78)';
+                break;
+            case 'away':
+                statusElement.textContent = 'Away';
+                statusElement.style.color = 'var(--warning, #ECC94B)';
+                break;
+            default:
+                statusElement.textContent = 'Offline';
+                statusElement.style.color = 'var(--gray-500)';
+        }
+    },
+
+    // ========================================
+    // REPLY FEATURE
+    // ========================================
+
+    // Show reply preview bar above input
+    showReplyPreview: (message) => {
+        Messaging.replyTarget = message;
+
+        const previewEl = document.getElementById('reply-preview');
+        const nameEl = document.getElementById('reply-preview-name');
+        const textEl = document.getElementById('reply-preview-text');
+
+        if (!previewEl || !nameEl || !textEl) return;
+
+        // Determine sender name
+        const currentUserId = Auth.currentUser?.uid;
+        const senderName = message.sender === currentUserId ? 'You' : (message.senderName || Messaging.currentChatUser?.displayName || 'User');
+
+        // Store senderName on the reply target for later use
+        Messaging.replyTarget.senderName = senderName;
+
+        nameEl.textContent = senderName;
+        textEl.textContent = Messaging.getReplyPreviewText(message);
+
+        previewEl.classList.remove('hidden');
+
+        // Focus the input
+        const messageInput = document.getElementById('message-input');
+        if (messageInput) messageInput.focus();
+
+        console.log('[Bondly] Reply preview shown for message:', message.id);
+    },
+
+    // Cancel / dismiss reply
+    cancelReply: () => {
+        Messaging.replyTarget = null;
+
+        const previewEl = document.getElementById('reply-preview');
+        if (previewEl) previewEl.classList.add('hidden');
+
+        console.log('[Bondly] Reply cancelled');
+    },
+
+    // Generate preview text for different message types
+    getReplyPreviewText: (message) => {
+        const type = message.type || 'text';
+        switch (type) {
+            case 'image':  return '\ud83d\udcf7 Photo';
+            case 'video':  return '\ud83c\udfa5 Video';
+            case 'file':   return '\ud83d\udcc4 ' + (message.fileName || 'File');
+            case 'voice':  return '\ud83c\udfa4 Voice message';
+            default:       return message.text || '';
+        }
+    },
+
+    // Scroll to a message and highlight it
+    scrollToMessage: (messageId) => {
+        const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+        if (!messageEl) {
+            Utils.showToast('Original message not found');
+            return;
+        }
+
+        // Scroll into view
+        messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Remove any previous highlight
+        messageEl.classList.remove('reply-highlight');
+        // Force reflow so animation restarts
+        void messageEl.offsetWidth;
+        messageEl.classList.add('reply-highlight');
+
+        // Clean up after animation
+        setTimeout(() => messageEl.classList.remove('reply-highlight'), 1600);
+    },
+
+    // Translation architecture placeholder. Provider integration belongs here later.
+    translateMessage: async (message) => {
+        if (!message || !Messaging.currentChatId) return;
+
+        console.log('[Bondly] Translate requested:', {
+            messageId: message.id,
+            type: message.type
+        });
+
+        if ((message.type || 'text') !== 'text' || !message.text) {
+            Utils.showToast('Only text translation is available later');
+            return;
+        }
+
+        try {
+            await FirebaseService.getDb()
+                .collection('chats').doc(Messaging.currentChatId)
+                .collection('messages').doc(message.id)
+                .update({
+                    translation: {
+                        status: 'pending_provider',
+                        targetLanguage: 'en',
+                        text: 'Translation provider not connected yet.'
+                    }
+                });
+            Utils.showToast('Translation placeholder added');
+        } catch (error) {
+            console.error('[Bondly] Translate placeholder failed:', error);
+            Utils.showToast('Unable to prepare translation');
+        }
+    },
+
+    // ========================================
+    // FORWARD FEATURE
+    // ========================================
+
+    // Open the forward modal and load friends
+    openForwardModal: async (message) => {
+        console.log('[Bondly] Opening forward modal for:', message);
+
+        Messaging.forwardTargets = [];
+        Messaging.forwardMessage = message;
+
+        const modal = document.getElementById('forward-modal');
+        const friendsList = document.getElementById('forward-friends-list');
+        const searchInput = document.getElementById('forward-search-input');
+        const countEl = document.getElementById('forward-selected-count');
+        const sendBtn = document.getElementById('forward-send-btn');
+
+        if (!modal) return;
+
+        // Reset UI
+        if (countEl) countEl.textContent = '0 selected';
+        if (sendBtn) sendBtn.disabled = true;
+        if (searchInput) searchInput.value = '';
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+        // Load friends from Firestore
+        friendsList.innerHTML = '<p style="text-align:center; color:var(--gray-500); padding:16px;">Loading friends...</p>';
+
+        try {
+            const db = FirebaseService.getDb();
+            const currentUserId = Auth.currentUser.uid;
+
+            const friendsSnapshot = await db.collection('friends')
+                .where('participants', 'array-contains', currentUserId)
+                .get();
+
+            const friendIds = [];
+            friendsSnapshot.forEach(doc => {
+                const data = doc.data();
+                const friendId = data.participants.find(p => p !== currentUserId);
+                if (friendId && !friendIds.includes(friendId)) {
+                    friendIds.push(friendId);
+                }
+            });
+
+            // Fetch user data for each friend
+            const friendsData = await Promise.all(
+                friendIds.map(async (fid) => {
+                    const userDoc = await db.collection('users').doc(fid).get();
+                    if (!userDoc.exists) return null;
+                    const userData = Utils.sanitizeUser(userDoc.data());
+                    return { uid: fid, ...userData };
+                })
+            );
+
+            Messaging.forwardFriendsData = friendsData.filter(f => f !== null);
+
+            Messaging.renderForwardFriends('');
+
+            // Setup search
+            if (searchInput) {
+                searchInput.oninput = () => {
+                    Messaging.renderForwardFriends(searchInput.value.trim().toLowerCase());
+                };
+            }
+
+        } catch (error) {
+            console.error('[Bondly] Error loading friends for forward:', error);
+            friendsList.innerHTML = '<p style="text-align:center; color:var(--gray-500); padding:16px;">Failed to load friends</p>';
+        }
+    },
+
+    // Render friends in forward modal with optional search filter
+    renderForwardFriends: (filter) => {
+        const friendsList = document.getElementById('forward-friends-list');
+        if (!friendsList) return;
+
+        let friends = Messaging.forwardFriendsData;
+
+        if (filter) {
+            friends = friends.filter(f => {
+                const name = (f.displayName || '').toLowerCase();
+                const username = (f.username || '').toLowerCase();
+                return name.includes(filter) || username.includes(filter);
+            });
+        }
+
+        if (friends.length === 0) {
+            friendsList.innerHTML = '<p style="text-align:center; color:var(--gray-500); padding:16px;">No friends found</p>';
+            return;
+        }
+
+        friendsList.innerHTML = friends.map(f => {
+            const isSelected = Messaging.forwardTargets.includes(f.uid);
+            const avatar = f.avatar || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect fill='%237BAFD4' width='40' height='40'/%3E%3Ctext x='20' y='20' font-size='20' text-anchor='middle' dy='.3em' fill='white'%3E\ud83d\udc64%3C/text%3E%3C/svg%3E";
+            return `
+                <div class="forward-friend-item ${isSelected ? 'selected' : ''}" onclick="Messaging.toggleForwardTarget('${f.uid}')">
+                    <img class="forward-friend-avatar" src="${avatar}" alt="${f.displayName}">
+                    <div class="forward-friend-info">
+                        <div class="forward-friend-name">${f.displayName || 'User'}</div>
+                        <div class="forward-friend-username">@${f.username || ''}</div>
+                    </div>
+                    <div class="forward-friend-check">${isSelected ? '\u2713' : ''}</div>
+                </div>
+            `;
+        }).join('');
+    },
+
+    // Toggle a friend in the forward selection
+    toggleForwardTarget: (uid) => {
+        const idx = Messaging.forwardTargets.indexOf(uid);
+        if (idx === -1) {
+            Messaging.forwardTargets.push(uid);
+        } else {
+            Messaging.forwardTargets.splice(idx, 1);
+        }
+
+        const count = Messaging.forwardTargets.length;
+        const countEl = document.getElementById('forward-selected-count');
+        const sendBtn = document.getElementById('forward-send-btn');
+
+        if (countEl) countEl.textContent = count + ' selected';
+        if (sendBtn) sendBtn.disabled = count === 0;
+
+        // Re-render to update checkmarks
+        const searchInput = document.getElementById('forward-search-input');
+        Messaging.renderForwardFriends((searchInput?.value || '').trim().toLowerCase());
+    },
+
+    // Close forward modal
+    closeForwardModal: () => {
+        const modal = document.getElementById('forward-modal');
+        if (modal) modal.classList.add('hidden');
+
+        Messaging.forwardTargets = [];
+        Messaging.forwardMessage = null;
+
+        console.log('[Bondly] Forward modal closed');
+    },
+
+    // Execute forward: send the message to all selected friends
+    executeForward: async () => {
+        if (!Messaging.forwardMessage || Messaging.forwardTargets.length === 0) return;
+
+        const db = FirebaseService.getDb();
+        const currentUserId = Auth.currentUser.uid;
+        const msg = Messaging.forwardMessage;
+
+        Utils.showLoading('Forwarding...');
+
+        let successCount = 0;
+
+        try {
+            for (const targetUid of Messaging.forwardTargets) {
+                try {
+                    // Get or create a chat with this target
+                    const chatId = await Messaging.getOrCreateChat(targetUid);
+                    if (!chatId) {
+                        console.error('[Bondly] Could not get/create chat for:', targetUid);
+                        continue;
+                    }
+
+                    // Build forwarded message
+                    const forwardedMsg = {
+                        sender: currentUserId,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        reactions: [],
+                        edited: false,
+                        deleted: false,
+                        read: false,
+                        forwarded: true,
+                        status: {
+                            sent: true,
+                            delivered: false,
+                            seen: false
+                        }
+                    };
+
+                    // Copy content based on type
+                    const type = msg.type || 'text';
+                    forwardedMsg.type = type;
+
+                    switch (type) {
+                        case 'image':
+                            forwardedMsg.imageUrl = msg.imageUrl || '';
+                            break;
+                        case 'video':
+                            forwardedMsg.fileUrl = msg.fileUrl || '';
+                            break;
+                        case 'file':
+                            forwardedMsg.fileUrl = msg.fileUrl || '';
+                            forwardedMsg.fileName = msg.fileName || 'file';
+                            break;
+                        case 'voice':
+                            forwardedMsg.voiceUrl = msg.voiceUrl || '';
+                            forwardedMsg.duration = msg.duration || 0;
+                            break;
+                        default:
+                            forwardedMsg.text = msg.text || '';
+                    }
+
+                    await db.collection('chats').doc(chatId)
+                        .collection('messages').add(forwardedMsg);
+
+                    // Update chat last message
+                    const lastMsgText = type === 'text' ? (msg.text || '') : `\ud83d\udce4 Forwarded ${type}`;
+                    await db.collection('chats').doc(chatId).update({
+                        lastMessage: lastMsgText,
+                        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+                        unread: {
+                            [currentUserId]: 0,
+                            [targetUid]: firebase.firestore.FieldValue.increment(1)
+                        }
+                    });
+
+                    successCount++;
+                } catch (err) {
+                    console.error('[Bondly] Error forwarding to', targetUid, err);
+                }
+            }
+
+            Utils.hideLoading();
+            Messaging.closeForwardModal();
+
+            if (successCount > 0) {
+                Utils.showToast(`Forwarded to ${successCount} friend${successCount > 1 ? 's' : ''}`);
+                Mobile.hapticFeedback('light');
+            } else {
+                Utils.showToast('Failed to forward message');
+            }
+
+        } catch (error) {
+            console.error('[Bondly] Forward error:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to forward message');
+        }
+    },
 };
 
 // Export for use in other modules

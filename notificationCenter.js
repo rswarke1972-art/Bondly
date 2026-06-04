@@ -83,7 +83,14 @@ const NotificationCenter = {
                 snapshot.docChanges().forEach(change => {
                     if (change.type === 'added' && !change.doc.data().read) {
                         const notification = change.doc.data();
+                        if ((notification.senderId || notification.from) === Auth.currentUser?.uid) {
+                            console.log('[Bondly] Ignoring self notification in center:', notification.type);
+                            return;
+                        }
                         NotificationCenter.showNotificationToast(notification);
+                        if (Notification.permission === 'granted') {
+                            Notifications.showBrowserNotification(notification);
+                        }
                     }
                 });
             }, (error) => {
@@ -96,9 +103,9 @@ const NotificationCenter = {
         const settings = Utils.storage.get('notificationSettings') || {};
         
         // Check if notifications are enabled for this type
-        if (notification.type === 'message' && !settings.messages) return;
-        if (notification.type === 'friend_request' && !settings.friendRequests) return;
-        if (notification.type === 'match' && !settings.matches) return;
+        if (notification.type === 'message' && settings.messages === false) return;
+        if (notification.type === 'friend_request' && settings.friendRequests === false) return;
+        if (notification.type === 'match' && settings.matches === false) return;
         
         // Show toast
         Utils.showToast(notification.title);

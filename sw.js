@@ -1,6 +1,6 @@
 // Bondly Service Worker for PWA
 
-const CACHE_NAME = 'bondly-v2';
+const CACHE_NAME = 'bondly-v3';
 const urlsToCache = [
     '/Bondly/',
     '/Bondly/index.html',
@@ -11,10 +11,11 @@ const urlsToCache = [
     '/Bondly/home.js',
     '/Bondly/messaging.js',
     '/Bondly/notifications.js',
+    '/Bondly/notificationCenter.js',
     '/Bondly/profile.js',
     '/Bondly/settings.js',
     '/Bondly/utils.js',
-    '/Bondly/firebase-config.js',
+    '/Bondly/firebase.js',
     '/Bondly/manifest.json'
 ];
 

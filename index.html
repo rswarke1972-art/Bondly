@@ -182,14 +182,24 @@
                     <p class="prompt-text" id="daily-prompt">What belief changed your life?</p>
                 </div>
                 
-                <!-- Recommended Connections -->
-                <div class="section">
-                    <h2>Recommended Connections</h2>
-                    <div id="recommendations-list" class="recommendations-list">
+                <!-- Posts Feed (recommendation system remains in home.js) -->
+                <div class="section posts-section">
+                    <h2>Posts Feed</h2>
+                    <form id="post-create-form" class="post-create-form">
+                        <textarea id="post-text" rows="3" maxlength="1000" placeholder="Share something with your friends..."></textarea>
+                        <div id="post-media-preview" class="post-media-preview hidden"></div>
+                        <input type="file" id="post-media-input" accept="image/*,video/*" hidden>
+                        <div class="post-create-actions">
+                            <button type="button" class="btn btn-secondary" id="post-media-btn">Add Media</button>
+                            <button type="submit" class="btn btn-primary">Post</button>
+                        </div>
+                    </form>
+                    <div id="posts-feed" class="posts-feed">
                         <p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">
-                            Sign in to see recommendations
+                            Sign in to see posts
                         </p>
                     </div>
+                    <div id="recommendations-list" class="recommendations-list hidden" aria-hidden="true"></div>
                 </div>
             </div>
             
@@ -398,6 +408,18 @@
                 <!-- Dynamic messages -->
             </div>
             
+            <!-- Reply Preview -->
+            <div id="reply-preview" class="reply-preview hidden">
+                <div class="reply-preview-content">
+                    <div class="reply-preview-bar"></div>
+                    <div class="reply-preview-info">
+                        <span class="reply-preview-name" id="reply-preview-name"></span>
+                        <span class="reply-preview-text" id="reply-preview-text"></span>
+                    </div>
+                </div>
+                <button class="reply-preview-close" id="reply-preview-close" onclick="Messaging.cancelReply()">✕</button>
+            </div>
+
             <!-- Message Input -->
             <div class="message-input-container">
 
@@ -474,10 +496,11 @@
 
                 <!-- Action Options -->
                 <div class="message-actions">
-                    <button class="action-btn" data-action="reply">Reply</button>
-                    <button class="action-btn" data-action="forward">Forward</button>
-                    <button class="action-btn" data-action="copy">Copy</button>
-                    <button class="action-btn" data-action="delete">Delete</button>
+                    <button class="action-btn" data-action="reply">↩️ Reply</button>
+                    <button class="action-btn" data-action="forward">↗️ Forward</button>
+                    <button class="action-btn" data-action="copy">📋 Copy</button>
+                    <button class="action-btn" data-action="translate">🌐 Translate</button>
+                    <button class="action-btn delete" data-action="delete">🗑️ Delete</button>
                 </div>
             </div>
         </div>
@@ -490,6 +513,11 @@
             </div>
             
             <div class="settings-list">
+                <div class="setting-item">
+                    <span class="setting-label">📧 Private Email</span>
+                    <span id="settings-user-email" style="font-size: 0.95rem; color: var(--gray-500); font-weight: 500;"></span>
+                </div>
+                
                 <div class="setting-item">
                     <span class="setting-label">🌙 Dark Mode</span>
                     <label class="toggle">
@@ -704,6 +732,26 @@
         </div>
         
         <!-- Toast Notification -->
+        <!-- Forward Message Modal -->
+        <div id="forward-modal" class="forward-modal hidden">
+            <div class="forward-modal-content">
+                <div class="forward-modal-header">
+                    <h3>Forward Message</h3>
+                    <button class="close-modal-btn" onclick="Messaging.closeForwardModal()">✕</button>
+                </div>
+                <div class="forward-modal-search">
+                    <input type="text" id="forward-search-input" placeholder="Search friends..." autocomplete="off">
+                </div>
+                <div id="forward-friends-list" class="forward-friends-list">
+                    <!-- Dynamic friend list -->
+                </div>
+                <div class="forward-modal-footer">
+                    <span id="forward-selected-count">0 selected</span>
+                    <button class="btn btn-primary" id="forward-send-btn" onclick="Messaging.executeForward()" disabled>Send</button>
+                </div>
+            </div>
+        </div>
+
         <div id="toast" class="toast hidden">
             <span id="toast-message"></span>
         </div>

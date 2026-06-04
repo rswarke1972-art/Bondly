@@ -2,6 +2,8 @@
 
 const Home = {
     userData: null,
+    selectedPostMedia: null,
+    postSetup: false,
     activityData: {
         unreadMessages: 0,
         friendRequests: 0,
@@ -16,6 +18,8 @@ const Home = {
         Home.loadGreeting();
         Home.loadDailyPrompt();
         Home.loadActivity();
+        Home.setupPosts();
+        Home.loadPosts();
         Home.loadRecommendations();
         Home.setupActivityListeners();
     },
@@ -25,8 +29,268 @@ const Home = {
         Home.loadGreeting();
         Home.loadDailyPrompt();
         Home.loadActivity();
+        Home.setupPosts();
+        Home.loadPosts();
         Home.loadRecommendations();
         Home.setupActivityListeners();
+    },
+
+    // Setup post composer events
+    setupPosts: () => {
+        if (Home.postSetup) return;
+
+        const form = document.getElementById('post-create-form');
+        const mediaBtn = document.getElementById('post-media-btn');
+        const mediaInput = document.getElementById('post-media-input');
+
+        form?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            Home.createPost();
+        });
+
+        mediaBtn?.addEventListener('click', () => mediaInput?.click());
+
+        mediaInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+                Utils.showToast('Please choose an image or video');
+                return;
+            }
+            if (file.size > 50 * 1024 * 1024) {
+                Utils.showToast('Media must be less than 50MB');
+                return;
+            }
+            Home.selectedPostMedia = file;
+            Home.renderPostMediaPreview(file);
+        });
+
+        Home.postSetup = true;
+    },
+
+    renderPostMediaPreview: (file) => {
+        const preview = document.getElementById('post-media-preview');
+        if (!preview) return;
+
+        const url = URL.createObjectURL(file);
+        const isVideo = file.type.startsWith('video/');
+        preview.classList.remove('hidden');
+        preview.innerHTML = `
+            <div class="post-media-preview-inner">
+                ${isVideo ? `<video src="${url}" muted playsinline></video>` : `<img src="${url}" alt="Selected media">`}
+                <button type="button" class="post-media-remove" onclick="Home.clearPostMedia()">Remove</button>
+            </div>
+        `;
+    },
+
+    clearPostMedia: () => {
+        Home.selectedPostMedia = null;
+        const input = document.getElementById('post-media-input');
+        const preview = document.getElementById('post-media-preview');
+        if (input) input.value = '';
+        if (preview) {
+            preview.classList.add('hidden');
+            preview.innerHTML = '';
+        }
+    },
+
+    getVisiblePostAuthorIds: async () => {
+        const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
+        const authorIds = new Set([userId]);
+
+        const friendsSnapshot = await db.collection('friends')
+            .where('participants', 'array-contains', userId)
+            .get();
+
+        friendsSnapshot.forEach(doc => {
+            const participants = doc.data().participants || [];
+            participants.forEach(participantId => {
+                if (participantId !== userId) authorIds.add(participantId);
+            });
+        });
+
+        return Array.from(authorIds);
+    },
+
+    // Load posts from self and friends
+    loadPosts: async () => {
+        if (!Auth.currentUser || !FirebaseService.isInitialized()) return;
+
+        const db = FirebaseService.getDb();
+        const feed = document.getElementById('posts-feed');
+        if (!feed) return;
+
+        feed.innerHTML = '<div class="post-loading">Loading posts...</div>';
+
+        try {
+            const authorIds = await Home.getVisiblePostAuthorIds();
+            const chunks = [];
+            for (let i = 0; i < authorIds.length; i += 10) {
+                chunks.push(authorIds.slice(i, i + 10));
+            }
+
+            const snapshots = await Promise.all(chunks.map(ids =>
+                db.collection('posts')
+                    .where('authorId', 'in', ids)
+                    .limit(30)
+                    .get()
+            ));
+
+            const posts = [];
+            snapshots.forEach(snapshot => {
+                snapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+            });
+
+            posts.sort((a, b) => {
+                const aTime = a.timestamp?.toMillis?.() || 0;
+                const bTime = b.timestamp?.toMillis?.() || 0;
+                return bTime - aTime;
+            });
+
+            Home.renderPosts(posts.slice(0, 30));
+        } catch (error) {
+            console.error('[Bondly] Error loading posts:', error);
+            feed.innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">Unable to load posts</p>';
+        }
+    },
+
+    createPost: async () => {
+        if (!Auth.currentUser || !FirebaseService.isInitialized()) return;
+
+        const textEl = document.getElementById('post-text');
+        const rawText = textEl?.value.trim() || '';
+        const file = Home.selectedPostMedia;
+
+        if (!rawText && !file) {
+            Utils.showToast('Add text or media to post');
+            return;
+        }
+
+        const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
+
+        Utils.showLoading(file ? 'Uploading post...' : 'Creating post...');
+
+        try {
+            const userDoc = await db.collection('users').doc(userId).get();
+            const userData = Utils.sanitizeUser(userDoc.data()) || {};
+            let mediaUrl = '';
+            let mediaType = '';
+
+            if (file) {
+                const upload = await Utils.uploadToCloudinary(file, file.type.startsWith('image/') ? 'image' : 'video');
+                mediaUrl = upload.secure_url;
+                mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+            }
+
+            await db.collection('posts').add({
+                authorId: userId,
+                author: {
+                    displayName: userData.displayName || Auth.currentUser.displayName || 'User',
+                    username: userData.username || '',
+                    avatar: userData.avatar || Auth.currentUser.photoURL || ''
+                },
+                text: Utils.sanitizeInput(rawText),
+                mediaUrl,
+                mediaType,
+                likes: [],
+                likeCount: 0,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            if (textEl) textEl.value = '';
+            Home.clearPostMedia();
+            Utils.showToast('Post created');
+            Home.loadPosts();
+        } catch (error) {
+            console.error('[Bondly] Error creating post:', error);
+            Utils.showToast(error.message || 'Unable to create post');
+        } finally {
+            Utils.hideLoading();
+        }
+    },
+
+    renderPosts: (posts) => {
+        const feed = document.getElementById('posts-feed');
+        if (!feed) return;
+
+        if (posts.length === 0) {
+            feed.innerHTML = '<p style="text-align: center; color: var(--gray-500); padding: var(--spacing-lg);">No posts yet. Share the first update.</p>';
+            return;
+        }
+
+        const currentUserId = Auth.currentUser?.uid;
+        const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'%3E%3Crect fill='%237BAFD4' width='44' height='44'/%3E%3Ctext x='22' y='22' font-size='20' text-anchor='middle' dy='.3em' fill='white'%3EU%3C/text%3E%3C/svg%3E";
+        feed.innerHTML = posts.map(post => {
+            const liked = (post.likes || []).includes(currentUserId);
+            const author = post.author || {};
+            const timestamp = post.timestamp?.toDate?.() || new Date();
+            const media = post.mediaUrl ? `
+                <div class="post-media ${post.mediaType === 'video' ? 'is-video' : 'is-image'}">
+                    <div class="media-placeholder">Loading ${post.mediaType || 'media'}...</div>
+                    ${post.mediaType === 'video'
+                        ? `<video src="${post.mediaUrl}" controls preload="metadata" onloadeddata="this.previousElementSibling.style.display='none'"></video>`
+                        : `<img src="${post.mediaUrl}" alt="Post media" loading="lazy" onload="this.previousElementSibling.style.display='none'">`}
+                </div>
+            ` : '';
+
+            return `
+                <article class="post-card" data-post-id="${post.id}">
+                    <div class="post-header">
+                        <img src="${Utils.escapeHTML(author.avatar || defaultAvatar)}" alt="${Utils.escapeHTML(author.displayName || 'User')}" class="post-avatar">
+                        <div class="post-author">
+                            <div class="post-author-name">${Utils.escapeHTML(author.displayName || 'User')}</div>
+                            <div class="post-time">@${Utils.escapeHTML(author.username || '')} · ${Utils.formatTime(timestamp)}</div>
+                        </div>
+                        ${post.authorId === currentUserId ? `<button class="post-delete-btn" onclick="Home.deletePost('${post.id}')">Delete</button>` : ''}
+                    </div>
+                    ${post.text ? `<p class="post-text">${Utils.escapeHTML(Utils.decodeHTML(post.text))}</p>` : ''}
+                    ${media}
+                    <div class="post-actions">
+                        <button class="post-like-btn ${liked ? 'liked' : ''}" onclick="Home.togglePostLike('${post.id}', ${liked})">
+                            ${liked ? 'Unlike' : 'Like'}
+                        </button>
+                        <span class="post-like-count">${post.likeCount || 0} ${(post.likeCount || 0) === 1 ? 'like' : 'likes'}</span>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    },
+
+    togglePostLike: async (postId, alreadyLiked) => {
+        if (!Auth.currentUser || !FirebaseService.isInitialized()) return;
+
+        const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
+
+        try {
+            await db.collection('posts').doc(postId).update({
+                likes: alreadyLiked
+                    ? firebase.firestore.FieldValue.arrayRemove(userId)
+                    : firebase.firestore.FieldValue.arrayUnion(userId),
+                likeCount: firebase.firestore.FieldValue.increment(alreadyLiked ? -1 : 1)
+            });
+            Home.loadPosts();
+        } catch (error) {
+            console.error('[Bondly] Error toggling post like:', error);
+            Utils.showToast('Unable to update like');
+        }
+    },
+
+    deletePost: async (postId) => {
+        if (!Auth.currentUser || !FirebaseService.isInitialized()) return;
+        if (!confirm('Delete this post?')) return;
+
+        try {
+            await FirebaseService.getDb().collection('posts').doc(postId).delete();
+            Utils.showToast('Post deleted');
+            Home.loadPosts();
+        } catch (error) {
+            console.error('[Bondly] Error deleting post:', error);
+            Utils.showToast('Unable to delete post');
+        }
     },
     
     // Load greeting based on time
@@ -109,7 +373,7 @@ const Home = {
 
             let matchesCount = 0;
             usersSnapshot.forEach(doc => {
-                const user = doc.data();
+                const user = Utils.sanitizeUser(doc.data());
                 if (!friendIds.has(user.uid)) {
                     const similarityScore = Home.calculateSimilarityScore(userData, user);
                     if (similarityScore > 0) {
@@ -202,7 +466,7 @@ const Home = {
             const recommendations = [];
 
             usersSnapshot.forEach(doc => {
-                const user = doc.data();
+                const user = Utils.sanitizeUser(doc.data());
 
                 // Exclude friends
                 if (friendIds.has(user.uid)) return;
@@ -270,7 +534,7 @@ const filteredUsers =
 
                 const recentUsers = [];
                 filteredUsers.forEach(doc => {
-                    const user = doc.data();
+                    const user = Utils.sanitizeUser(doc.data());
                     if (!friendIds.has(user.uid) && !requestedIds.has(user.uid) && !blockedIds.has(user.uid)) {
                         recentUsers.push(user);
                     }
@@ -378,7 +642,7 @@ const filteredUsers =
                     console.log('[Bondly] Requests opened');
                     Home.openRequestsModal();
                 } else if (cardId === 'new-matches-card') {
-                    console.log('[Bondly] Scrolling to recommendations');
+                    console.log('[Bondly] Scrolling to posts feed');
                     Home.scrollToRecommendations();
                 } else if (cardId === 'blocked-users-card') {
                     console.log('[Bondly] Blocked users opened');
@@ -437,7 +701,7 @@ const filteredUsers =
                     requestsSnapshot.docs.map(async (doc) => {
                         const request = doc.data();
                         const userDoc = await db.collection('users').doc(request.from).get();
-                        const userData = userDoc.data();
+                        const userData = Utils.sanitizeUser(userDoc.data());
                         return { id: doc.id, ...request, userData };
                     })
                 );
@@ -543,7 +807,7 @@ const filteredUsers =
                     blockedSnapshot.docs.map(async (doc) => {
                         const blocked = doc.data();
                         const userDoc = await db.collection('users').doc(blocked.blocked).get();
-                        const userData = userDoc.data();
+                        const userData = Utils.sanitizeUser(userDoc.data());
                         return { id: doc.id, ...blocked, userData };
                     })
                 );
@@ -631,9 +895,9 @@ const filteredUsers =
 
     // Scroll to recommendations
     scrollToRecommendations: () => {
-        const recommendationsSection = document.querySelector('#home-screen .section h2');
-        if (recommendationsSection && recommendationsSection.textContent === 'Recommended Connections') {
-            recommendationsSection.scrollIntoView({ behavior: 'smooth' });
+        const postsSection = document.querySelector('#home-screen .posts-section');
+        if (postsSection) {
+            postsSection.scrollIntoView({ behavior: 'smooth' });
         } else {
             // Fallback: try to find by ID or class
             const section = document.querySelector('.section');

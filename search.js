@@ -16,7 +16,7 @@ const Search = {
             const users = [];
             
             usersSnapshot.forEach(doc => {
-                users.push(doc.data());
+                users.push(Utils.sanitizeUser(doc.data()));
             });
             
             // Filter by query
@@ -117,7 +117,7 @@ const Search = {
                 const friendId = friendData.participants.find(p => p !== userId);
                 
                 const userDoc = await db.collection('users').doc(friendId).get();
-                const userData = userDoc.data();
+                const userData = Utils.sanitizeUser(userDoc.data());
                 
                 if (Utils.fuzzyMatch(userData.displayName, query) ||
                     Utils.fuzzyMatch(userData.username, query)) {
@@ -164,7 +164,7 @@ const Search = {
             try {
                 const db = FirebaseService.getDb();
                 const userDoc = await db.collection('users').doc(Auth.currentUser.uid).get();
-                const userData = userDoc.data();
+                const userData = Utils.sanitizeUser(userDoc.data());
                 
                 userData.interests?.forEach(interest => {
                     if (Utils.fuzzyMatch(interest, partialQuery)) {

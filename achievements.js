@@ -153,17 +153,24 @@ const Achievements = {
                     
                     const countries = new Set();
                     
-                    for (const friendDoc of friendsSnapshot.docs) {
-                        const friendData = friendDoc.data();
-                        const friendId = friendData.participants.find(p => p !== userId);
-                        
-                        const userDoc = await db.collection('users').doc(friendId).get();
-                        const userData = userDoc.data();
-                        
-                        if (userData.country) {
-                            countries.add(userData.country);
-                        }
-                    }
+                    const friendPromises =
+    friendsSnapshot.docs.map(async friendDoc => {
+
+        const friendData =
+            friendDoc.data();
+
+        const friendId =
+            friendData.participants.find(
+                p => p !== userId
+            );
+
+        return db.collection('users')
+            .doc(friendId)
+            .get();
+    });
+
+const userDocs =
+    await Promise.all(friendPromises);
                     
                     if (achievementId === 'language_explorer') {
                         return countries.size >= 1;
@@ -262,9 +269,11 @@ const Achievements = {
             });
             
             // Update user stats
-            await db.collection('userStats').doc(userId).update({
-                achievements: firebase.firestore.FieldValue.arrayUnion(achievementId)
-            });
+            await db.collection('userStats').doc(userId).set({
+    achievements: firebase.firestore.FieldValue.arrayUnion(achievementId)
+}, {
+    merge: true
+});
             
             // Show notification
             Utils.showToast(`🏆 Achievement Unlocked: ${achievement.name}`);
@@ -313,7 +322,11 @@ const Achievements = {
                 if (rarityOrder[b.rarity] !== rarityOrder[a.rarity]) {
                     return rarityOrder[b.rarity] - rarityOrder[a.rarity];
                 }
-                return b.earnedAt - a.earnedAt;
+                return (
+    (b.earnedAt?.getTime() || 0)
+    -
+    (a.earnedAt?.getTime() || 0)
+);
             });
             
             return achievements;
@@ -376,6 +389,15 @@ const Achievements = {
                 <button onclick="this.parentElement.parentElement.remove();" style="width: 100%; background: var(--soft-blue); color: var(--white); border: none; padding: var(--spacing-md); border-radius: var(--radius-md); cursor: pointer; font-weight: 600;">Close</button>
             </div>
         `;
+
+        modal.addEventListener(
+    'click',
+    (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    }
+);
         
         document.body.appendChild(modal);
     }

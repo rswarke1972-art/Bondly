@@ -55,7 +55,7 @@ const Friends = {
                 const requestsWithUsers = await Promise.all(
                     Friends.friendRequests.map(async (request) => {
                         const userDoc = await db.collection('users').doc(request.from).get();
-                        const userData = userDoc.data();
+                        const userData = Utils.sanitizeUser(userDoc.data());
                         return { ...request, userData };
                     })
                 );
@@ -117,7 +117,7 @@ const Friends = {
             const friendsWithUsers = await Promise.all(
                 Friends.friends.map(async (friend) => {
                     const userDoc = await db.collection('users').doc(friend.friendId).get();
-                    const userData = userDoc.data();
+                    const userData = Utils.sanitizeUser(userDoc.data());
                     return { ...friend, userData };
                 })
             );
@@ -223,9 +223,12 @@ const Friends = {
             });
 
             // Send notification
+            const accepterDoc = await db.collection('users').doc(userId).get();
+            const accepterData = Utils.sanitizeUser(accepterDoc.data());
             await Notifications.sendNotification(fromUserId, {
                 type: 'friend_accepted',
-                from: userId,
+                senderId: userId,
+                senderName: accepterData?.displayName || 'Someone',
                 message: 'accepted your friend request'
             });
 

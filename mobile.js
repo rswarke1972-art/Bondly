@@ -147,7 +147,8 @@ const Mobile = {
         // Prevent bounce scrolling on iOS
         document.body.addEventListener('touchmove', (e) => {
             if (e.target.closest('.messages-container') || 
-                e.target.closest('.content-screen')) {
+                e.target.closest('.content-screen') ||
+                e.target.closest('.screen')) {
                 return;
             }
             e.preventDefault();

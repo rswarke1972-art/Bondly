@@ -112,8 +112,8 @@ const Auth = {
             await auth.signInWithEmailAndPassword(email, password);
             Utils.showToast('Welcome back!');
         } catch (error) {
-            console.error('Login error:', error);
-            Utils.showToast(Auth.getErrorMessage(error.code));
+            console.error('[Bondly Login Failure]:', error);
+            Utils.showToast(Auth.getErrorMessage(error));
         } finally {
             Utils.hideLoading();
         }
@@ -125,6 +125,14 @@ const Auth = {
         const username = document.getElementById('signup-username').value.trim().toLowerCase();
         const email = document.getElementById('signup-email').value.trim();
         const password = document.getElementById('signup-password').value;
+        let createdUser = null;
+
+        console.log('[Bondly Signup] Starting validation', {
+            hasName: Boolean(name),
+            username,
+            email,
+            passwordLength: password ? password.length : 0
+        });
         
         // Validation
         if (!name || !username || !email || !password) {
@@ -164,6 +172,7 @@ const Auth = {
             const db = FirebaseService.getDb();
             
             // Check if username is already taken
+            console.log('[Bondly Signup] Checking username availability:', username);
             const usernameQuery = await db.collection('users')
                 .where('username', '==', username)
                 .limit(1)
@@ -176,10 +185,13 @@ const Auth = {
             }
             
             // Create user account
+            console.log('[Bondly Signup] Creating Firebase Auth user');
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
+            createdUser = user;
             
             // Update display name
+            console.log('[Bondly Signup] Updating auth display name');
             await user.updateProfile({ displayName: name });
             
             // Create user profile in Firestore
@@ -210,9 +222,11 @@ const Auth = {
                 suspended: false
             };
             
+            console.log('[Bondly Signup] Creating Firestore user profile:', user.uid);
             await db.collection('users').doc(user.uid).set(userProfile);
             
             // Initialize user stats
+            console.log('[Bondly Signup] Creating user stats:', user.uid);
             await db.collection('userStats').doc(user.uid).set({
                 friendsCount: 0,
                 conversationsCount: 0,
@@ -220,16 +234,22 @@ const Auth = {
                 achievements: []
             });
             
+            console.log('[Bondly Signup] Account created successfully:', user.uid);
             Utils.showToast('Account created successfully!');
         } catch (error) {
-            console.error('Signup error:', error);
-            Utils.showToast(Auth.getErrorMessage(error.code));
+            console.error('[Bondly Signup Failure]:', {
+                message: error.message,
+                code: error.code,
+                stack: error.stack,
+                errorObject: error
+            });
+            Utils.showToast(Auth.getErrorMessage(error), 5000);
             
             // If user was created but profile failed, delete the user
-            const auth = FirebaseService.getAuth();
-            if (auth.currentUser) {
+            if (createdUser) {
                 try {
-                    await auth.currentUser.delete();
+                    console.log('[Bondly Signup] Rolling back partially created auth user:', createdUser.uid);
+                    await createdUser.delete();
                 } catch (deleteError) {
                     console.error('Error deleting user:', deleteError);
                 }
@@ -316,8 +336,8 @@ const Auth = {
             
             Utils.showToast('Welcome to Bondly!');
         } catch (error) {
-            console.error('Google login error:', error);
-            Utils.showToast(Auth.getErrorMessage(error.code));
+            console.error('[Bondly Google Login Failure]:', error);
+            Utils.showToast(Auth.getErrorMessage(error));
         } finally {
             Utils.hideLoading();
         }
@@ -377,8 +397,8 @@ const Auth = {
             await auth.sendPasswordResetEmail(email);
             Utils.showToast('Password reset email sent!');
         } catch (error) {
-            console.error('Password reset error:', error);
-            Utils.showToast(Auth.getErrorMessage(error.code));
+            console.error('[Bondly Password Reset Failure]:', error);
+            Utils.showToast(Auth.getErrorMessage(error));
         } finally {
             Utils.hideLoading();
         }
@@ -489,22 +509,36 @@ const Auth = {
         document.getElementById('signup-email-form').reset();
     },
     
-    // Get error message from error code
-    getErrorMessage: (code) => {
+    // Get error message from error code or error object
+    getErrorMessage: (error) => {
+        if (!error) return 'An error occurred. Please try again.';
+        
+        const code = typeof error === 'string' ? error : error.code;
+        const message = typeof error === 'object' ? (error.message || '') : '';
+        
+        console.error('[Bondly Auth Error Mapping]:', {
+            code: code,
+            message: message,
+            originalError: error
+        });
+        
         const messages = {
             'auth/email-already-in-use': 'Email already in use',
             'auth/invalid-email': 'Invalid email address',
-            'auth/weak-password': 'Password is too weak',
+            'auth/weak-password': 'Password is too weak. Must be at least 8 characters.',
             'auth/user-not-found': 'User not found',
             'auth/wrong-password': 'Incorrect password',
             'auth/popup-closed-by-user': 'Sign in cancelled',
             'auth/account-exists-with-different-credential': 'Account already exists with different credentials',
             'auth/invalid-credential': 'Invalid credentials',
             'auth/too-many-requests': 'Too many attempts. Try again later',
-            'auth/user-disabled': 'This account has been disabled'
+            'auth/user-disabled': 'This account has been disabled',
+            'auth/operation-not-allowed': 'Email/password signup is not enabled in Firebase Authentication',
+            'permission-denied': 'Firebase permission denied. Check Firestore security rules.',
+            'unavailable': 'Firebase is temporarily unavailable. Please try again.'
         };
         
-        return messages[code] || 'An error occurred. Please try again.';
+        return messages[code] || message || 'An error occurred. Please try again.';
     },
     
     // Check if user is authenticated

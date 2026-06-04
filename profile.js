@@ -13,7 +13,7 @@ const Profile = {
 
         try {
             const userDoc = await db.collection('users').doc(userId).get();
-            const userData = userDoc.data();
+            const userData = Utils.sanitizeUser(userDoc.data());
             Profile.userData = userData;
 
             console.log('[Bondly] Profile data loaded');
@@ -301,8 +301,8 @@ const Profile = {
             Utils.showToast('Avatar updated successfully!');
             Mobile.hapticFeedback('success');
 
-            // Reload profile
-            await Profile.loadProfile();
+            // Reload all visible profile surfaces
+            await Profile.refreshVisibleUserData();
 
         } catch (error) {
             console.error('[Bondly] Upload failed:', error);
@@ -361,8 +361,7 @@ const Profile = {
             Utils.showToast('Profile saved successfully!');
             Mobile.hapticFeedback('success');
             
-            // Reload profile
-            await Profile.loadProfile();
+            await Profile.refreshVisibleUserData();
             
             // Close edit screen
             App.closeEditProfile();
@@ -382,7 +381,7 @@ const Profile = {
         
         try {
             const userDoc = await db.collection('users').doc(userId).get();
-            const userData = userDoc.data();
+            const userData = Utils.sanitizeUser(userDoc.data());
             
             content.innerHTML = `
                 <div class="profile-header" style="background: linear-gradient(135deg, var(--soft-blue) 0%, var(--lavender) 100%);">
@@ -455,6 +454,25 @@ const Profile = {
     // Refresh profile
     refresh: async () => {
         await Profile.loadProfile();
+    },
+
+    refreshVisibleUserData: async () => {
+        console.log('[Bondly] Refreshing visible user data after profile change');
+        await Profile.loadProfile();
+
+        const refreshers = [
+            ['Home', typeof Home !== 'undefined' && Home.refresh],
+            ['Discover', typeof Discover !== 'undefined' && Discover.refresh],
+            ['Friends', typeof Friends !== 'undefined' && Friends.refresh],
+            ['Chats', typeof Chats !== 'undefined' && Chats.refresh]
+        ];
+
+        refreshers.forEach(([name, fn]) => {
+            if (fn) {
+                console.log(`[Bondly] Refreshing ${name}`);
+                fn();
+            }
+        });
     }
 };
 

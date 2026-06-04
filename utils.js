@@ -231,6 +231,17 @@ const Utils = {
             .trim();
     },
 
+    // Escape text for safe HTML rendering without changing stored values
+    escapeHTML: (input) => {
+        if (input === null || input === undefined) return '';
+        return String(input)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    },
+
     // Decode HTML entities for display
     decodeHTML: (input) => {
         if (typeof input !== 'string') return input;
@@ -364,6 +375,63 @@ const Utils = {
         }
     },
     
+    // Sanitize user object to protect email privacy
+    sanitizeUser: (userData) => {
+        if (!userData) return null;
+        const sanitized = { ...userData };
+        if (typeof Auth !== 'undefined' && Auth.currentUser) {
+            if (sanitized.uid !== Auth.currentUser.uid) {
+                delete sanitized.email;
+            }
+        } else {
+            // Safety fallback: if auth is not initialized or user is not logged in, remove email
+            delete sanitized.email;
+        }
+        return sanitized;
+    },
+
+    // Build a public-safe user object for cards, profiles, chat lists, and feeds
+    sanitizePublicUser: (userData) => {
+        const user = Utils.sanitizeUser(userData);
+        if (!user) return null;
+        delete user.email;
+        return user;
+    },
+
+    // Shared Cloudinary upload helper used by media features
+    uploadToCloudinary: async (file, resourceType = 'auto') => {
+        if (!file) throw new Error('No file selected');
+
+        const endpointType = resourceType === 'auto'
+            ? (file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'raw')
+            : resourceType;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'bondly_upload');
+
+        console.log('[Bondly] Cloudinary upload started:', {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            endpointType
+        });
+
+        const response = await fetch(`https://api.cloudinary.com/v1_1/dvjdqc8pj/${endpointType}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            console.error('[Bondly] Cloudinary upload failed:', data.error || data);
+            throw new Error(data.error?.message || 'Upload failed');
+        }
+
+        console.log('[Bondly] Cloudinary upload complete:', data.secure_url);
+        return data;
+    },
+
     // Check if device is mobile
     isMobile: () => {
         return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);

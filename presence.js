@@ -76,11 +76,27 @@ const Presence = {
         
         const rtdb = FirebaseService.getRtdb();
         const presenceRef = rtdb.ref(`users/${userId}/presence`);
+        const connectedRef = rtdb.ref('.info/connected');
         
-        presenceRef.set({
+        const payload = {
+            state: status,
             online: status === 'online',
             away: status === 'away',
             lastSeen: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        connectedRef.once('value').then((snapshot) => {
+            if (snapshot.val() === true) {
+                presenceRef.onDisconnect().set({
+                    state: 'offline',
+                    online: false,
+                    away: false,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+            return presenceRef.set(payload);
+        }).catch((error) => {
+            console.error('[Bondly] Presence update failed:', error);
         });
     },
     

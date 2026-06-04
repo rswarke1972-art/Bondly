@@ -7,6 +7,14 @@ const Settings = {
         Settings.loadDeepMode();
         Settings.loadNotificationSettings();
         Settings.loadPrivacySettings();
+        
+        // Show current user's email privately in Settings
+        if (typeof Auth !== 'undefined' && Auth.currentUser) {
+            const emailElement = document.getElementById('settings-user-email');
+            if (emailElement) {
+                emailElement.textContent = Auth.currentUser.email || '';
+            }
+        }
     },
     
     // Load dark mode setting

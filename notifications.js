@@ -51,6 +51,12 @@ const Notifications = {
         const db = FirebaseService.getDb();
 
         try {
+            const senderId = notificationData.senderId || notificationData.from;
+            if (senderId && senderId === userId) {
+                console.log('[Bondly] Skipping self notification:', notificationData.type);
+                return;
+            }
+
             // Check if user has notifications enabled in settings
             const userDoc = await db.collection('users').doc(userId).get();
             const userData = userDoc.data();
@@ -70,25 +76,26 @@ const Notifications = {
                 return;
             }
 
-            // Add notification to user's notifications collection
-            await db.collection('users').doc(userId).collection('notifications').add({
+            const payload = {
                 ...notificationData,
+                userId,
+                title: Notifications.getNotificationTitle(notificationData),
                 read: false,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            };
+
+            // Add notification to both current top-level center and legacy user subcollection
+            await db.collection('notifications').add(payload);
+            await db.collection('users').doc(userId).collection('notifications').add(payload);
 
             // Update unread count
             await db.collection('users').doc(userId).update({
                 unreadNotifications: firebase.firestore.FieldValue.increment(1)
             });
 
-            // Show in-app notification if user is online
+            // Show in-app/browser notification only in the recipient's active client
             if (Auth.currentUser?.uid === userId) {
                 Notifications.showInAppNotification(notificationData);
-            }
-
-            // Show browser notification if permission granted
-            if (Notification.permission === 'granted') {
                 Notifications.showBrowserNotification(notificationData);
             }
 
@@ -97,6 +104,16 @@ const Notifications = {
         } catch (error) {
             console.error('[Bondly] Error sending notification:', error);
         }
+    },
+
+    getNotificationTitle: (notificationData) => {
+        const titles = {
+            message: 'New Message',
+            friend_request: 'Friend Request',
+            friend_accepted: 'Friend Accepted',
+            reaction: 'Reaction'
+        };
+        return notificationData.title || titles[notificationData.type] || 'Bondly';
     },
 
     // Show browser notification
@@ -129,13 +146,25 @@ const Notifications = {
                 body = notificationData.message || 'New notification';
         }
 
-        const notification = new Notification(title, {
+        const options = {
             body,
             icon,
             badge: icon,
             tag: notificationData.type,
             requireInteraction: false
-        });
+        };
+
+        if (navigator.serviceWorker?.ready) {
+            navigator.serviceWorker.ready
+                .then(registration => registration.showNotification(title, options))
+                .catch(error => {
+                    console.error('[Bondly] Service worker notification failed:', error);
+                    new Notification(title, options);
+                });
+            return;
+        }
+
+        const notification = new Notification(title, options);
 
         notification.onclick = () => {
             window.focus();

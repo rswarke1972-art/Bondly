@@ -32,6 +32,9 @@ const App = {
     // Setup Android back button handling
     App.setupAndroidBackButton();
 
+    // Keep focused inputs reachable above mobile keyboards
+    App.setupMobileKeyboardScroll();
+
     App.navigateTo('home');
 },
     
@@ -57,6 +60,19 @@ const App = {
         const screens = document.querySelectorAll('.content-screen');
         screens.forEach(screen => {
             screen.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+        });
+    },
+
+    setupMobileKeyboardScroll: () => {
+        document.addEventListener('focusin', (e) => {
+            const field = e.target.closest('input, textarea, select');
+            const scrollScreen = e.target.closest('#edit-profile-screen, #settings-screen, #notification-settings-screen, #chat-screen');
+            if (!field || !scrollScreen) return;
+
+            setTimeout(() => {
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                console.log('[Bondly] Mobile keyboard scroll adjustment:', field.id || field.name || field.tagName);
+            }, 250);
         });
     },
     
@@ -231,6 +247,7 @@ Messaging.markAsRead(userId);
     
     // Close chat screen
     closeChat: () => {
+        Messaging.cleanup();
         document.getElementById('chat-screen').classList.remove('active');
         document.getElementById('chat-screen').classList.add('hidden');
         
@@ -417,7 +434,7 @@ Messaging.markAsRead(userId);
         // Notification settings save
         const notifyToggles = ['notify-messages', 'notify-friend-requests', 'notify-matches', 'notify-achievements', 'notify-push', 'notify-sound'];
         notifyToggles.forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => {
+            document.getElementById(id)?.addEventListener('change', async () => {
                 const settings = {
                     messages: document.getElementById('notify-messages').checked,
                     friendRequests: document.getElementById('notify-friend-requests').checked,
@@ -427,6 +444,20 @@ Messaging.markAsRead(userId);
                     sound: document.getElementById('notify-sound').checked
                 };
                 Utils.storage.set('notificationSettings', settings);
+                Utils.storage.set('notifications', settings.messages);
+                if (settings.push) {
+                    await Notifications.requestPermission();
+                }
+                if (Auth.currentUser && FirebaseService.isInitialized()) {
+                    try {
+                        await FirebaseService.getDb().collection('users').doc(Auth.currentUser.uid).update({
+                            notificationSettings: settings
+                        });
+                        console.log('[Bondly] Detailed notification settings saved:', settings);
+                    } catch (error) {
+                        console.error('[Bondly] Error saving detailed notification settings:', error);
+                    }
+                }
             });
         });
         
@@ -665,4 +696,3 @@ window.addEventListener('appinstalled', () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = App;
 }
-

@@ -71,7 +71,7 @@ const Discover = {
             const users = [];
 
             usersSnapshot.forEach(doc => {
-                const user = doc.data();
+                const user = Utils.sanitizeUser(doc.data());
                 // Exclude friends and blocked users from Discover
                 if (!friendIds.has(user.uid) && !blockedIds.has(user.uid)) {
                     users.push(user);

@@ -14,6 +14,11 @@ service cloud.firestore {
     function isParticipant(participants) {
       return isAuthenticated() && request.auth.uid in participants;
     }
+
+    function isChatParticipant(chatId) {
+      return isAuthenticated() &&
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
     
     // Users collection
     match /users/{userId} {
@@ -56,12 +61,32 @@ service cloud.firestore {
       
       // Messages subcollection
       match /messages/{messageId} {
-        allow read: if isParticipant(resource.data.participants);
+        allow read: if isChatParticipant(chatId);
         allow create: if isAuthenticated() && 
+          isChatParticipant(chatId) &&
           request.resource.data.sender == request.auth.uid;
-        allow update, delete: if isAuthenticated() && 
-          resource.data.sender == request.auth.uid;
+        allow update: if isChatParticipant(chatId);
+        allow delete: if isAuthenticated() && resource.data.sender == request.auth.uid;
       }
+
+      // Typing subcollection
+      match /typing/{userId} {
+        allow read: if isChatParticipant(chatId);
+        allow write: if isChatParticipant(chatId) && request.auth.uid == userId;
+      }
+    }
+
+    // Posts feed
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        (
+          resource.data.authorId == request.auth.uid ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likeCount'])
+        );
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
     }
     
     // Notifications

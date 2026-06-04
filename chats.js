@@ -54,7 +54,7 @@ const Chats = {
                     chats.map(async (chat) => {
                         const otherUserId = chat.participants.find(p => p !== userId);
                         const userDoc = await db.collection('users').doc(otherUserId).get();
-                        const userData = userDoc.data();
+                        const userData = Utils.sanitizeUser(userDoc.data());
                         return { ...chat, userData };
                     })
                 );
