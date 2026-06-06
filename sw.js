@@ -2,21 +2,21 @@
 
 const CACHE_NAME = 'bondly-v3';
 const urlsToCache = [
-    '/Bondly/',
-    '/Bondly/index.html',
-    '/Bondly/styles.css',
-    '/Bondly/app.js',
-    '/Bondly/auth.js',
-    '/Bondly/friends.js',
-    '/Bondly/home.js',
-    '/Bondly/messaging.js',
-    '/Bondly/notifications.js',
-    '/Bondly/notificationCenter.js',
-    '/Bondly/profile.js',
-    '/Bondly/settings.js',
-    '/Bondly/utils.js',
-    '/Bondly/firebase.js',
-    '/Bondly/manifest.json'
+    './',
+    './index.html',
+    './styles.css',
+    './app.js',
+    './auth.js',
+    './friends.js',
+    './home.js',
+    './messaging.js',
+    './notifications.js',
+    './notificationCenter.js',
+    './profile.js',
+    './settings.js',
+    './utils.js',
+    './firebase.js',
+    './manifest.json'
 ];
 
 // Install event - cache resources
@@ -87,8 +87,8 @@ self.addEventListener('push', (event) => {
 
     const options = {
         body: event.data ? event.data.text() : 'New notification',
-        icon: '/favicon.ico',
-badge: '/favicon.ico',
+        icon: 'icons/icon-192.png',
+        badge: 'icons/icon-192.png',
         vibrate: [200, 100, 200],
         data: {
             dateOfArrival: Date.now(),
@@ -108,6 +108,6 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     event.waitUntil(
-        clients.openWindow('/Bondly/')
+        clients.openWindow('./')
     );
 });

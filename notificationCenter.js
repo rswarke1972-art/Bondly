@@ -78,6 +78,7 @@ const NotificationCenter = {
                 });
                 
                 NotificationCenter.updateBadge();
+                NotificationCenter.renderNotifications();
                 
                 // Show toast for new unread notifications
                 snapshot.docChanges().forEach(change => {
@@ -130,11 +131,16 @@ const NotificationCenter = {
         if (!FirebaseService.isInitialized()) return;
         
         const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
         
         try {
             await db.collection('notifications').doc(notificationId).update({
                 read: true,
                 readAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            await db.collection('users').doc(userId).update({
+                unreadNotifications: firebase.firestore.FieldValue.increment(-1)
             });
             
             NotificationCenter.unreadCount = Math.max(0, NotificationCenter.unreadCount - 1);
@@ -156,6 +162,8 @@ const NotificationCenter = {
         try {
             const unreadNotifications = NotificationCenter.notifications.filter(n => !n.read);
             
+            if (unreadNotifications.length === 0) return;
+            
             const batch = db.batch();
             
             unreadNotifications.forEach(notification => {
@@ -167,6 +175,10 @@ const NotificationCenter = {
             });
             
             await batch.commit();
+            
+            await db.collection('users').doc(userId).update({
+                unreadNotifications: 0
+            });
             
             NotificationCenter.unreadCount = 0;
             NotificationCenter.updateBadge();
@@ -184,9 +196,19 @@ const NotificationCenter = {
         if (!FirebaseService.isInitialized()) return;
         
         const db = FirebaseService.getDb();
+        const userId = Auth.currentUser.uid;
         
         try {
+            const notif = NotificationCenter.notifications.find(n => n.id === notificationId);
+            const wasUnread = notif && !notif.read;
+            
             await db.collection('notifications').doc(notificationId).delete();
+            
+            if (wasUnread) {
+                await db.collection('users').doc(userId).update({
+                    unreadNotifications: firebase.firestore.FieldValue.increment(-1)
+                });
+            }
             
             Utils.showToast('Notification deleted');
             

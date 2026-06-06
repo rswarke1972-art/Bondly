@@ -12,25 +12,44 @@ const Safety = {
         Utils.showLoading('Blocking user...');
         
         try {
-            // Add to blocked users list
-            await db.collection('users').doc(userId).collection('blocked').doc(blockedUserId).set({
-                blockedUserId,
-                blockedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
             // Remove friend if exists
             const friendsSnapshot = await db.collection('friends')
                 .where('participants', 'array-contains', userId)
                 .get();
             
             const batch = db.batch();
+            let friendshipFound = false;
             
             friendsSnapshot.forEach(doc => {
                 const data = doc.data();
                 if (data.participants.includes(blockedUserId)) {
                     batch.delete(doc.ref);
+                    friendshipFound = true;
                 }
             });
+            
+            // Add block document (both directions) for consistency
+            batch.set(db.collection('blockedUsers').doc(), {
+                blocker: userId,
+                blocked: blockedUserId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            batch.set(db.collection('blockedUsers').doc(), {
+                blocker: blockedUserId,
+                blocked: userId,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            if (friendshipFound) {
+                // Update user stats
+                batch.update(db.collection('userStats').doc(userId), {
+                    friendsCount: firebase.firestore.FieldValue.increment(-1)
+                });
+                batch.update(db.collection('userStats').doc(blockedUserId), {
+                    friendsCount: firebase.firestore.FieldValue.increment(-1)
+                });
+            }
             
             await batch.commit();
             
@@ -52,8 +71,21 @@ const Safety = {
         const db = FirebaseService.getDb();
         
         try {
-            await db.collection('users').doc(userId).collection('blocked').doc(blockedUserId).delete();
+            const blockSnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', userId)
+                .where('blocked', '==', blockedUserId)
+                .get();
+                
+            const reverseBlockSnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', blockedUserId)
+                .where('blocked', '==', userId)
+                .get();
+                
+            const batch = db.batch();
+            blockSnapshot.forEach(doc => batch.delete(doc.ref));
+            reverseBlockSnapshot.forEach(doc => batch.delete(doc.ref));
             
+            await batch.commit();
             Utils.showToast('User unblocked');
             
         } catch (error) {
@@ -69,8 +101,12 @@ const Safety = {
         const db = FirebaseService.getDb();
         
         try {
-            const doc = await db.collection('users').doc(userId).collection('blocked').doc(targetUserId).get();
-            return doc.exists;
+            const querySnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', userId)
+                .where('blocked', '==', targetUserId)
+                .limit(1)
+                .get();
+            return !querySnapshot.empty;
         } catch (error) {
             console.error('Error checking block status:', error);
             return false;
@@ -84,13 +120,15 @@ const Safety = {
         const db = FirebaseService.getDb();
         
         try {
-            const snapshot = await db.collection('users').doc(userId).collection('blocked').get();
+            const snapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', userId)
+                .get();
             
             const blockedUsers = [];
             
             for (const doc of snapshot.docs) {
                 const data = doc.data();
-                const userDoc = await db.collection('users').doc(data.blockedUserId).get();
+                const userDoc = await db.collection('users').doc(data.blocked).get();
                 if (userDoc.exists) {
                     blockedUsers.push({
                         id: doc.id,

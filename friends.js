@@ -4,6 +4,7 @@ const Friends = {
     friends: [],
     friendRequests: [],
     currentCategory: 'all',
+    searchQuery: '',
     
     // Initialize friends screen
     init: () => {
@@ -11,6 +12,7 @@ const Friends = {
         Friends.loadFriendRequests();
         Friends.loadFriends();
         Friends.setupCategoryListeners();
+        Friends.setupSearchListener();
     },
     
     // Refresh friends screen
@@ -123,7 +125,16 @@ const Friends = {
             );
 
             // Filter by category
-            const filteredFriends = Friends.filterByCategory(friendsWithUsers);
+            let filteredFriends = Friends.filterByCategory(friendsWithUsers);
+
+            // Filter by search query
+            if (Friends.searchQuery) {
+                const query = Friends.searchQuery.toLowerCase();
+                filteredFriends = filteredFriends.filter(friend => 
+                    Utils.fuzzyMatch(friend.userData.displayName, query) ||
+                    Utils.fuzzyMatch(friend.userData.username, query)
+                );
+            }
 
             console.log('[Bondly] Friends loaded:', filteredFriends.length);
 
@@ -179,6 +190,15 @@ const Friends = {
             });
         });
     },
+
+    // Setup search input listener
+    setupSearchListener: () => {
+        const searchInput = document.getElementById('friends-search');
+        searchInput?.addEventListener('input', Utils.debounce((e) => {
+            Friends.searchQuery = e.target.value;
+            Friends.loadFriends();
+        }, 300));
+    },
     
     // Accept friend request
     acceptRequest: async (requestId, fromUserId) => {
@@ -232,8 +252,8 @@ const Friends = {
                 message: 'accepted your friend request'
             });
 
-            // Check for first friend achievement
-            await Achievements.checkAchievement('first_friend');
+            // Check for friends-related achievements
+            await Achievements.checkCategoryAchievements('friends');
 
             Utils.showToast('Friend request accepted!');
             Mobile.hapticFeedback('success');
@@ -405,11 +425,13 @@ const Friends = {
                 .get();
 
             const batch = db.batch();
+            let friendshipFound = false;
 
             friendsSnapshot.forEach(doc => {
                 const data = doc.data();
                 if (data.participants.includes(friendId)) {
                     batch.delete(doc.ref);
+                    friendshipFound = true;
                 }
             });
 
@@ -426,16 +448,17 @@ const Friends = {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
+            if (friendshipFound) {
+                // Update user stats
+                batch.update(db.collection('userStats').doc(userId), {
+                    friendsCount: firebase.firestore.FieldValue.increment(-1)
+                });
+                batch.update(db.collection('userStats').doc(friendId), {
+                    friendsCount: firebase.firestore.FieldValue.increment(-1)
+                });
+            }
+
             await batch.commit();
-
-            // Update user stats
-            await db.collection('userStats').doc(userId).update({
-                friendsCount: firebase.firestore.FieldValue.increment(-1)
-            });
-
-            await db.collection('userStats').doc(friendId).update({
-                friendsCount: firebase.firestore.FieldValue.increment(-1)
-            });
 
             Utils.showToast('User blocked');
             Mobile.hapticFeedback('light');

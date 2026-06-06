@@ -138,15 +138,20 @@
                 <div class="nav-item" data-screen="profile">
                     <span class="nav-icon">👤</span>
                     <span class="nav-label">Profile</span>
-                    <span class="nav-badge" id="notifications-badge"></span>
                 </div>
             </nav>
             
             <!-- Home Screen -->
             <div id="home-screen" class="content-screen active">
-                <div class="screen-header">
-                    <h1 id="greeting">Good evening 🌙</h1>
-                    <p class="subtitle">Ready to connect?</p>
+                <div class="screen-header home-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div>
+                        <h1 id="greeting">Good evening 🌙</h1>
+                        <p class="subtitle">Ready to connect?</p>
+                    </div>
+                    <button class="icon-btn" id="home-notifications-btn" onclick="App.navigateTo('notifications')" style="position: relative; font-size: 1.5rem; background: none; border: none; cursor: pointer; padding: var(--spacing-sm);">
+                        🔔
+                        <span class="nav-badge" id="notifications-badge" style="position: absolute; top: 0; right: 0; display: none;"></span>
+                    </button>
                 </div>
                 
                 <!-- Activity Cards -->
@@ -255,6 +260,11 @@
                 <div class="screen-header">
                     <h1>Friends</h1>
                     <button class="icon-btn" id="add-friend-btn">➕</button>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-container" style="padding: 0 var(--spacing-lg) var(--spacing-sm); margin-bottom: var(--spacing-sm);">
+                    <input type="text" id="friends-search" placeholder="Search friends..." style="width: 100%; padding: var(--spacing-sm) var(--spacing-md); border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-family: inherit; outline: none; background: var(--gray-100);">
                 </div>
                 
                 <!-- Friend Categories -->
@@ -370,6 +380,7 @@
                 <!-- Profile Actions -->
                 <div class="profile-actions">
                     <button class="btn btn-secondary" id="edit-profile-btn">Edit Profile</button>
+                    <button class="btn btn-secondary" id="language-center-btn">🌍 Language Center</button>
                     <button class="btn btn-secondary" id="settings-btn">⚙️ Settings</button>
                 </div>
             </div>
@@ -377,6 +388,7 @@
             <!-- Notifications Screen -->
             <div id="notifications-screen" class="content-screen hidden">
                 <div class="screen-header">
+                    <button class="back-btn" id="notifications-back-btn">← Back</button>
                     <h1>Notifications</h1>
                     <button class="icon-btn" id="mark-all-read-btn">✓ All read</button>
                 </div>
@@ -400,7 +412,14 @@
                         <p id="chat-user-status" class="status-text">Online</p>
                     </div>
                 </div>
+                <button class="icon-btn" id="chat-search-toggle-btn" aria-label="Search Messages">🔍</button>
                 <button class="icon-btn" id="chat-options-btn">⋮</button>
+            </div>
+            
+            <!-- Chat Search Bar -->
+            <div id="chat-search-bar" class="chat-search-bar hidden">
+                <input type="text" id="chat-message-search" placeholder="Search messages...">
+                <button id="chat-search-clear-btn" class="chat-search-clear-btn">✕</button>
             </div>
             
             <!-- Messages Container -->
@@ -807,6 +826,66 @@
                 <button class="close-modal-btn" onclick="Home.closeBlockedModal()">✕</button>
             </div>
             <div id="blocked-modal-list" class="mini-modal-list"></div>
+        </div>
+    </div>
+    <!-- Language Center Screen -->
+    <div id="language-center-screen" class="screen hidden">
+        <div class="screen-header">
+            <button class="back-btn" id="language-center-back-btn">← Back</button>
+            <h1>Language Center</h1>
+        </div>
+        
+        <div class="language-center-content" style="padding: var(--spacing-lg); overflow-y: auto; height: calc(100% - 60px);">
+            <!-- Practice Tracker Section -->
+            <div class="card" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--white); border-radius: var(--radius-lg); box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-bottom: var(--spacing-xs);">⏱️ Practice Tracker</h3>
+                <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: var(--spacing-sm);">Log practice minutes for your active languages.</p>
+                <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
+                    <select id="practice-lang-select" style="flex: 2; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;"></select>
+                    <input type="number" id="practice-minutes" placeholder="Mins" style="flex: 1; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;">
+                    <button class="btn btn-primary" onclick="LanguageUI.logPractice()" style="padding: var(--spacing-sm) var(--spacing-md);">Log</button>
+                </div>
+            </div>
+
+            <!-- Goals Section -->
+            <div class="card" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--white); border-radius: var(--radius-lg); box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-bottom: var(--spacing-xs);">🎯 Daily Practice Goal</h3>
+                <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: var(--spacing-sm);">Set daily practice target in minutes.</p>
+                <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
+                    <select id="goal-lang-select" style="flex: 2; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;"></select>
+                    <input type="number" id="goal-minutes" placeholder="Mins" style="flex: 1; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;">
+                    <button class="btn btn-primary" onclick="LanguageUI.setGoal()" style="padding: var(--spacing-sm) var(--spacing-md);">Set</button>
+                </div>
+            </div>
+
+            <!-- Vocabulary List Section -->
+            <div class="card" style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--white); border-radius: var(--radius-lg); box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-bottom: var(--spacing-xs);">📚 Vocabulary Book</h3>
+                <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: var(--spacing-sm);">Keep track of translation cards.</p>
+                <div style="display: flex; flex-direction: column; gap: var(--spacing-xs); margin-top: var(--spacing-sm);">
+                    <div style="display: flex; gap: var(--spacing-xs);">
+                        <input type="text" id="vocab-word" placeholder="Word" style="flex: 1; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;">
+                        <input type="text" id="vocab-translation" placeholder="Translation" style="flex: 1; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;">
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-xs);">
+                        <select id="vocab-lang-select" style="flex: 2; padding: var(--spacing-sm); border-radius: var(--radius-md); border: 1px solid var(--gray-300); font-family: inherit;"></select>
+                        <button class="btn btn-primary" onclick="LanguageUI.addWord()" style="flex: 1; padding: var(--spacing-sm);">Add Word</button>
+                    </div>
+                </div>
+                
+                <div id="vocab-list-container" style="margin-top: var(--spacing-md); max-height: 200px; overflow-y: auto; border-top: 1px solid var(--gray-200); padding-top: var(--spacing-sm);">
+                    <!-- Dynamic vocabulary -->
+                </div>
+            </div>
+
+            <!-- Badges Section -->
+            <div class="card" style="padding: var(--spacing-md); background: var(--white); border-radius: var(--radius-lg); box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <h3 style="margin-bottom: var(--spacing-xs);">🏆 Language Badges</h3>
+                <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: var(--spacing-sm);">View your level-based badges earned.</p>
+                <div id="badges-container" style="display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-sm);">
+                    <!-- Dynamic badges -->
+                </div>
+            </div>
         </div>
     </div>
 </body>

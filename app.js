@@ -93,6 +93,11 @@ const App = {
             App.closeEditProfile();
         });
 
+        // Language Center back button
+        document.getElementById('language-center-back-btn')?.addEventListener('click', () => {
+            App.closeLanguageCenter();
+        });
+
         // User profile back button
         document.getElementById('user-profile-back-btn')?.addEventListener('click', () => {
             App.closeUserProfile();
@@ -105,6 +110,11 @@ const App = {
 
         // Profile back button
         document.getElementById('profile-back-btn')?.addEventListener('click', () => {
+            App.navigateTo(App.previousScreen || 'home');
+        });
+
+        // Notifications back button
+        document.getElementById('notifications-back-btn')?.addEventListener('click', () => {
             App.navigateTo(App.previousScreen || 'home');
         });
     },
@@ -160,6 +170,11 @@ const App = {
                 break;
             case 'profile':
                 Profile.refresh();
+                break;
+            case 'notifications':
+                if (typeof NotificationCenter !== 'undefined') {
+                    NotificationCenter.renderNotifications();
+                }
                 break;
         }
     },
@@ -282,6 +297,22 @@ Messaging.markAsRead(userId);
         document.getElementById('edit-profile-screen').classList.add('hidden');
     },
     
+    // Open language center screen
+    openLanguageCenter: () => {
+        document.getElementById('language-center-screen').classList.remove('hidden');
+        document.getElementById('language-center-screen').classList.add('active');
+        if (typeof LanguageUI !== 'undefined') {
+            LanguageUI.init();
+            LanguageUI.refresh();
+        }
+    },
+    
+    // Close language center screen
+    closeLanguageCenter: () => {
+        document.getElementById('language-center-screen').classList.remove('active');
+        document.getElementById('language-center-screen').classList.add('hidden');
+    },
+    
     // Open user profile screen
     openUserProfile: (userId) => {
         document.getElementById('user-profile-screen').classList.remove('hidden');
@@ -398,7 +429,11 @@ Messaging.markAsRead(userId);
         
         // Settings navigation
         document.getElementById('privacy-settings')?.addEventListener('click', () => {
-            Utils.showToast('Privacy settings coming soon');
+            if (typeof Settings !== 'undefined') {
+                Settings.showPrivacySettings();
+            } else {
+                Utils.showToast('Privacy settings coming soon');
+            }
         });
         
         document.getElementById('blocked-users')?.addEventListener('click', () => {
@@ -406,7 +441,11 @@ Messaging.markAsRead(userId);
         });
         
         document.getElementById('language-settings')?.addEventListener('click', () => {
-            Utils.showToast('Language preferences coming soon');
+            App.openLanguageCenter();
+        });
+        
+        document.getElementById('language-center-btn')?.addEventListener('click', () => {
+            App.openLanguageCenter();
         });
         
         document.getElementById('notification-settings')?.addEventListener('click', () => {
@@ -414,7 +453,11 @@ Messaging.markAsRead(userId);
         });
         
         document.getElementById('chat-themes')?.addEventListener('click', () => {
-            Utils.showToast('Chat themes coming soon');
+            if (typeof Settings !== 'undefined') {
+                Settings.showChatThemes();
+            } else {
+                Utils.showToast('Chat themes coming soon');
+            }
         });
         
         document.getElementById('achievements-settings')?.addEventListener('click', () => {

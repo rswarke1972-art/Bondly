@@ -19,6 +19,8 @@ const Messaging = {
     forwardTargets: [],
     forwardFriendsData: [],
     inputSetup: false,
+    searchQuery: '',
+    currentMessages: [],
 
     // Initialize messaging
     init: () => {
@@ -230,6 +232,28 @@ if (voiceBtn) {
             lastTypingTime = now;
             Messaging.sendTypingIndicator();
         }
+    });
+
+    // Setup Chat Search Listeners
+    const searchToggleBtn = document.getElementById('chat-search-toggle-btn');
+    searchToggleBtn?.addEventListener('click', () => {
+        Messaging.toggleSearch();
+    });
+
+    const searchInput = document.getElementById('chat-message-search');
+    searchInput?.addEventListener('input', (e) => {
+        Messaging.handleSearch(e.target.value);
+    });
+
+    const searchClearBtn = document.getElementById('chat-search-clear-btn');
+    searchClearBtn?.addEventListener('click', () => {
+        Messaging.clearSearch();
+    });
+
+    // Setup Chat Options Menu
+    const chatOptionsBtn = document.getElementById('chat-options-btn');
+    chatOptionsBtn?.addEventListener('click', () => {
+        Messaging.showChatOptions();
     });
 
     // Mark setup as complete
@@ -673,9 +697,8 @@ if (voiceBtn) {
     }
 });
                     
-                    Messaging.renderMessages(
-    messages.reverse()
-);
+                    Messaging.currentMessages = messages.reverse();
+                    Messaging.renderMessages(Messaging.currentMessages);
 
                     Mobile.scrollToBottom(messagesContainer);
                     
@@ -811,7 +834,26 @@ if (voiceBtn) {
             return;
         }
 
-        messagesContainer.innerHTML = messages.map(msg => {
+        let displayMessages = messages;
+        if (Messaging.searchQuery && Messaging.searchQuery.trim() !== '') {
+            const query = Messaging.searchQuery.trim().toLowerCase();
+            displayMessages = messages.filter(msg => {
+                const textMatch = msg.text && Utils.fuzzyMatch(msg.text, query);
+                const fileMatch = msg.fileName && Utils.fuzzyMatch(msg.fileName, query);
+                return textMatch || fileMatch;
+            });
+        }
+
+        if (displayMessages.length === 0) {
+            messagesContainer.innerHTML = `
+                <div style="text-align: center; color: var(--gray-500); padding: var(--spacing-xl);">
+                    <p>No messages match your search</p>
+                </div>
+            `;
+            return;
+        }
+
+        messagesContainer.innerHTML = displayMessages.map(msg => {
             const isSent = msg.sender === currentUserId;
             const timestamp = msg.timestamp ? msg.timestamp.toDate() : new Date();
             const messageType = msg.type || 'text';
@@ -1068,9 +1110,9 @@ if (voiceBtn) {
                 console.error('Error updating stats:', statsError);
             }
 
-            // Check for achievements
+            // Check for message-related achievements
             try {
-                await Achievements.checkAchievement('first_message');
+                await Achievements.checkCategoryAchievements('messages');
             } catch (achievementError) {
                 console.error('Error checking achievement:', achievementError);
             }
@@ -1420,8 +1462,50 @@ stopVoiceRecording:
         }
     },
     
+    // Toggle Chat Search Bar
+    toggleSearch: () => {
+        const searchBar = document.getElementById('chat-search-bar');
+        if (!searchBar) return;
+        
+        const isHidden = searchBar.classList.contains('hidden');
+        if (isHidden) {
+            searchBar.classList.remove('hidden');
+            document.getElementById('chat-message-search')?.focus();
+        } else {
+            Messaging.clearSearch();
+            searchBar.classList.add('hidden');
+        }
+    },
+
+    // Clear Search query
+    clearSearch: () => {
+        const searchInput = document.getElementById('chat-message-search');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        Messaging.searchQuery = '';
+        Messaging.renderMessages(Messaging.currentMessages);
+    },
+
+    // Handle Search input change
+    handleSearch: (query) => {
+        Messaging.searchQuery = query;
+        Messaging.renderMessages(Messaging.currentMessages);
+    },
+
     // Cleanup listeners
     cleanup: () => {
+        // Reset search state
+        Messaging.searchQuery = '';
+        const searchBar = document.getElementById('chat-search-bar');
+        if (searchBar) {
+            searchBar.classList.add('hidden');
+        }
+        const searchInput = document.getElementById('chat-message-search');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
         Messaging.clearTypingIndicator();
         if (Messaging.messagesListener) {
             Messaging.messagesListener();
@@ -2404,6 +2488,249 @@ await Messaging
             console.error('[Bondly] Forward error:', error);
             Utils.hideLoading();
             Utils.showToast('Failed to forward message');
+        }
+    },
+
+    // Show Chat Options Modal
+    showChatOptions: () => {
+        if (!Messaging.currentChatUser) return;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: var(--white); padding: var(--spacing-lg); border-radius: var(--radius-lg); max-width: 350px; width: 90%; text-align: center;">
+                <h3 style="margin-bottom: var(--spacing-md); color: var(--midnight-blue); font-family: var(--font-secondary);">Chat Options</h3>
+                <div style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                    <button id="opts-view-profile" style="width: 100%; padding: var(--spacing-md); border: none; background: var(--gray-100); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; color: var(--midnight-blue);">👤 View Profile</button>
+                    <button id="opts-insights" style="width: 100%; padding: var(--spacing-md); border: none; background: var(--gray-100); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; color: var(--midnight-blue);">📊 Conversation Insights</button>
+                    <button id="opts-block" style="width: 100%; padding: var(--spacing-md); border: none; background: rgba(229, 115, 115, 0.1); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; color: var(--error);">🚫 Block User</button>
+                    <button id="opts-report" style="width: 100%; padding: var(--spacing-md); border: none; background: rgba(229, 115, 115, 0.1); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; color: var(--error);">⚠️ Report User</button>
+                    <button id="opts-close" style="width: 100%; padding: var(--spacing-md); border: none; background: var(--gray-200); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; margin-top: var(--spacing-sm);">Close</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Event listeners
+        modal.querySelector('#opts-view-profile').onclick = () => {
+            modal.remove();
+            App.openUserProfile(Messaging.currentChatUser.uid);
+        };
+
+        modal.querySelector('#opts-insights').onclick = () => {
+            modal.remove();
+            Messaging.showConversationInsights();
+        };
+
+        modal.querySelector('#opts-block').onclick = () => {
+            modal.remove();
+            if (typeof Friends !== 'undefined') {
+                Friends.blockUser(Messaging.currentChatUser.uid);
+            } else {
+                Safety.blockUser(Auth.currentUser.uid, Messaging.currentChatUser.uid);
+            }
+        };
+
+        modal.querySelector('#opts-report').onclick = () => {
+            modal.remove();
+            Safety.showReportDialog(Messaging.currentChatUser.uid, Messaging.currentChatUser.displayName);
+        };
+
+        modal.querySelector('#opts-close').onclick = () => {
+            modal.remove();
+        };
+
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
+    },
+
+    // Show Conversation Insights Modal
+    showConversationInsights: async () => {
+        if (!Messaging.currentChatUser || !Messaging.currentChatId) return;
+
+        Utils.showLoading('Calculating insights...');
+
+        try {
+            const db = FirebaseService.getDb();
+            const userId = Auth.currentUser.uid;
+            const targetId = Messaging.currentChatUser.uid;
+
+            // 1. Friendship Age
+            let friendshipAge = "0 days";
+            try {
+                const friendshipQuery = await db.collection('friends')
+                    .where('participants', 'array-contains', userId)
+                    .get();
+                friendshipQuery.forEach(doc => {
+                    const data = doc.data();
+                    if (data.participants.includes(targetId)) {
+                        const createdAt = data.createdAt?.toDate() || new Date();
+                        const diffTime = Math.abs(new Date() - createdAt);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        friendshipAge = `${diffDays} days`;
+                    }
+                });
+            } catch (e) {
+                console.warn('Could not read friendship age:', e);
+            }
+
+            // 2. Messages Exchanged
+            let messagesExchanged = 0;
+            try {
+                const messagesSnapshot = await db.collection('chats').doc(Messaging.currentChatId)
+                    .collection('messages').get();
+                messagesExchanged = messagesSnapshot.size;
+            } catch (e) {
+                console.warn('Could not count messages:', e);
+                messagesExchanged = Messaging.currentMessages.length;
+            }
+
+            // 3. Languages Practiced
+            const uniqueLangs = new Set();
+            Messaging.currentMessages.forEach(m => {
+                if (m.translation?.language) {
+                    uniqueLangs.add(m.translation.language);
+                }
+            });
+            const languagesPracticed = Math.max(1, uniqueLangs.size);
+
+            // 4. Streak
+            const dates = Messaging.currentMessages
+                .map(m => m.timestamp?.toDate()?.toDateString())
+                .filter(Boolean);
+            const uniqueDates = Array.from(new Set(dates)).map(d => new Date(d));
+            uniqueDates.sort((a, b) => a - b);
+            let currentStreak = 0;
+            let longestStreak = 0;
+            let prevDate = null;
+            uniqueDates.forEach(date => {
+                if (!prevDate) {
+                    currentStreak = 1;
+                } else {
+                    const diff = (date - prevDate) / (1000 * 60 * 60 * 24);
+                    if (diff <= 1.5) {
+                        currentStreak++;
+                    } else {
+                        currentStreak = 1;
+                    }
+                }
+                if (currentStreak > longestStreak) {
+                    longestStreak = currentStreak;
+                }
+                prevDate = date;
+            });
+            longestStreak = Math.max(longestStreak, messagesExchanged > 0 ? 1 : 0);
+
+            // 5. Most Discussed Topic
+            const topics = {
+                Travel: ['travel', 'trip', 'flight', 'country', 'visit', 'explore', 'vacation', 'beach', 'holiday'],
+                Hobbies: ['hobby', 'hobbies', 'game', 'play', 'movie', 'sport', 'book', 'read', 'draw', 'music', 'dance'],
+                Languages: ['learn', 'study', 'practice', 'speak', 'write', 'pronounce', 'word', 'grammar', 'translate', 'sentence'],
+                Life: ['philosophy', 'dream', 'life', 'future', 'feeling', 'happy', 'sad', 'goal', 'family', 'friend']
+            };
+            const topicCounts = { Travel: 0, Hobbies: 0, Languages: 0, Life: 0 };
+            Messaging.currentMessages.forEach(m => {
+                if (m.text) {
+                    const text = m.text.toLowerCase();
+                    Object.keys(topics).forEach(topic => {
+                        topics[topic].forEach(keyword => {
+                            if (text.includes(keyword)) {
+                                topicCounts[topic]++;
+                            }
+                        });
+                    });
+                }
+            });
+            let mostDiscussedTopic = 'Getting Started';
+            let maxCount = 0;
+            Object.keys(topicCounts).forEach(topic => {
+                if (topicCounts[topic] > maxCount) {
+                    maxCount = topicCounts[topic];
+                    mostDiscussedTopic = topic;
+                }
+            });
+
+            Utils.hideLoading();
+
+            // Render Insights Modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10001;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: var(--white); padding: var(--spacing-lg); border-radius: var(--radius-lg); max-width: 400px; width: 90%; text-align: center;">
+                    <h2 style="margin-bottom: var(--spacing-md); color: var(--midnight-blue); font-family: var(--font-secondary);">📊 Conversation Insights</h2>
+                    <p style="margin-bottom: var(--spacing-lg); color: var(--gray-500); font-size: 0.875rem;">Your connection with ${Messaging.currentChatUser.displayName}</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); text-align: left;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: var(--spacing-xs);">
+                            <span style="font-weight: 500; color: var(--gray-600);">🗓️ Friendship Age</span>
+                            <span style="font-weight: 700; color: var(--midnight-blue);">${friendshipAge}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: var(--spacing-xs);">
+                            <span style="font-weight: 500; color: var(--gray-600);">💬 Messages Exchanged</span>
+                            <span style="font-weight: 700; color: var(--midnight-blue);">${messagesExchanged}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: var(--spacing-xs);">
+                            <span style="font-weight: 500; color: var(--gray-600);">🗣️ Languages Practiced</span>
+                            <span style="font-weight: 700; color: var(--midnight-blue);">${languagesPracticed}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: var(--spacing-xs);">
+                            <span style="font-weight: 500; color: var(--gray-600);">🔥 Longest Streak</span>
+                            <span style="font-weight: 700; color: var(--midnight-blue);">${longestStreak} day${longestStreak !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: var(--spacing-xs);">
+                            <span style="font-weight: 500; color: var(--gray-600);">💡 Most Discussed Topic</span>
+                            <span style="font-weight: 700; color: var(--midnight-blue);">${mostDiscussedTopic}</span>
+                        </div>
+                    </div>
+                    
+                    <button id="insights-close-btn" style="width: 100%; padding: var(--spacing-md); border: none; background: var(--soft-blue); color: var(--white); border-radius: var(--radius-md); font-weight: 600; cursor: pointer;">Awesome!</button>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            modal.querySelector('#insights-close-btn').onclick = () => {
+                modal.remove();
+            };
+
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+
+        } catch (error) {
+            console.error('Error fetching conversation insights:', error);
+            Utils.hideLoading();
+            Utils.showToast('Could not load conversation insights');
         }
     },
 };

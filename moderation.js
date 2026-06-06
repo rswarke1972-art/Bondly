@@ -104,8 +104,13 @@ const Moderation = {
             violations.push('excessive_caps');
         }
         
-        // Check for spam patterns
-        if (text.repeat(text.length / 2) === text) {
+        // Check for spam patterns (repeated substring of length >= 3)
+        const isRepeatedPattern = (str) => {
+            if (str.length < 6) return false;
+            const doubleStr = str + str;
+            return doubleStr.indexOf(str, 1) !== str.length;
+        };
+        if (isRepeatedPattern(text)) {
             violations.push('repetition');
         }
         

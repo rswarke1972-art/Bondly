@@ -34,7 +34,7 @@ const Utils = {
         if (hour >= 5 && hour < 12) return 'Good morning ☀️';
         if (hour >= 12 && hour < 17) return 'Good afternoon 🌤️';
         if (hour >= 17 && hour < 21) return 'Good evening 🌙';
-        return 'Good night �';
+        return 'Good night 🌃';
     },
     
     // Truncate text
@@ -106,11 +106,24 @@ const Utils = {
         
         // Timezone proximity (within 3 hours)
         if (user1.timezone && user2.timezone) {
-            const diff = Math.abs(parseInt(user1.timezone) - parseInt(user2.timezone));
-            if (diff <= 3) {
-                score += 20;
+            try {
+                let offset1 = 0;
+                let offset2 = 0;
+                if (typeof Matching !== 'undefined' && Matching.getTimezoneOffset) {
+                    offset1 = Matching.getTimezoneOffset(user1.timezone);
+                    offset2 = Matching.getTimezoneOffset(user2.timezone);
+                } else {
+                    offset1 = parseInt(user1.timezone) || 0;
+                    offset2 = parseInt(user2.timezone) || 0;
+                }
+                const diff = Math.abs(offset1 - offset2);
+                if (diff <= 3) {
+                    score += 20;
+                }
+                factors++;
+            } catch (e) {
+                // Ignore error and skip timezone proximity factor
             }
-            factors++;
         }
         
         // Shared personality tags

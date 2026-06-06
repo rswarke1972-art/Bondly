@@ -927,7 +927,6 @@ const filteredUsers =
         }
     },
     
-    // Send friend request
     sendFriendRequest: async (toUserId) => {
         if (!Auth.currentUser) return;
         if (!FirebaseService.isInitialized()) {
@@ -938,11 +937,64 @@ const filteredUsers =
         const db = FirebaseService.getDb();
         const fromUserId = Auth.currentUser.uid;
         
+        if (toUserId === fromUserId) {
+            Utils.showToast('You cannot send a friend request to yourself');
+            return;
+        }
+        
         try {
-            // Check if request already exists
+            // Check block status
+            const blockedSnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', fromUserId)
+                .where('blocked', '==', toUserId)
+                .get();
+            if (!blockedSnapshot.empty) {
+                Utils.showToast('You have blocked this user');
+                return;
+            }
+            
+            const reverseBlockedSnapshot = await db.collection('blockedUsers')
+                .where('blocker', '==', toUserId)
+                .where('blocked', '==', fromUserId)
+                .get();
+            if (!reverseBlockedSnapshot.empty) {
+                Utils.showToast('This user has blocked you');
+                return;
+            }
+
+            // Check if already friends
+            const friendsSnapshot = await db.collection('friends')
+                .where('participants', 'array-contains', fromUserId)
+                .get();
+            let alreadyFriends = false;
+            friendsSnapshot.forEach(doc => {
+                if (doc.data().participants.includes(toUserId)) {
+                    alreadyFriends = true;
+                }
+            });
+            if (alreadyFriends) {
+                Utils.showToast('You are already friends');
+                return;
+            }
+
+            // Check if there is an incoming pending request from this user
+            const incomingRequest = await db.collection('friendRequests')
+                .where('from', '==', toUserId)
+                .where('to', '==', fromUserId)
+                .where('status', '==', 'pending')
+                .get();
+            if (!incomingRequest.empty) {
+                // Automatically accept request instead of creating duplicate
+                const reqDoc = incomingRequest.docs[0];
+                await Friends.acceptRequest(reqDoc.id, toUserId);
+                return;
+            }
+
+            // Check if request already exists (outgoing)
             const existingRequest = await db.collection('friendRequests')
                 .where('from', '==', fromUserId)
                 .where('to', '==', toUserId)
+                .where('status', '==', 'pending')
                 .get();
             
             if (!existingRequest.empty) {

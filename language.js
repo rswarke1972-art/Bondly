@@ -179,8 +179,11 @@ const Language = {
                     [language]: minutes,
                     totalMinutes: minutes
                 });
+                // Check achievements
+                if (typeof Achievements !== 'undefined') {
+                    await Achievements.checkCategoryAchievements('language');
+                }
             }
-            
         } catch (error) {
             console.error('Error tracking practice time:', error);
         }
@@ -259,7 +262,143 @@ const Language = {
     }
 };
 
+const LanguageUI = {
+    init: () => {
+        // Populate language select dropdowns
+        const practiceSelect = document.getElementById('practice-lang-select');
+        const goalSelect = document.getElementById('goal-lang-select');
+        const vocabSelect = document.getElementById('vocab-lang-select');
+        
+        if (practiceSelect && goalSelect && vocabSelect) {
+            const optionsHtml = Language.supportedLanguages.map(lang => 
+                `<option value="${lang.code}">${lang.flag} ${lang.name}</option>`
+            ).join('');
+            
+            practiceSelect.innerHTML = optionsHtml;
+            goalSelect.innerHTML = optionsHtml;
+            vocabSelect.innerHTML = optionsHtml;
+        }
+    },
+
+    refresh: async () => {
+        if (!Auth.currentUser) return;
+        const userId = Auth.currentUser.uid;
+
+        // Load vocabulary
+        const vocabList = await Language.getVocabulary(userId);
+        const vocabContainer = document.getElementById('vocab-list-container');
+        if (vocabContainer) {
+            if (vocabList.length === 0) {
+                vocabContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500); font-size: 0.875rem;">No words added yet</p>';
+            } else {
+                vocabContainer.innerHTML = vocabList.map(item => {
+                    const langInfo = Language.getLanguage(item.language);
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-xs) 0; border-bottom: 1px solid var(--gray-100);">
+                            <div>
+                                <span style="font-weight: 600; color: var(--midnight-blue);">${Utils.escapeHTML(item.word)}</span>
+                                <span style="color: var(--gray-500); font-size: 0.875rem;"> - ${Utils.escapeHTML(item.translation)}</span>
+                            </div>
+                            <span style="font-size: 0.8rem; background: var(--gray-100); padding: 2px 6px; border-radius: var(--radius-sm);">${langInfo?.flag || '🌍'} ${langInfo?.name || item.language}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Load badges
+        const badges = await Language.getLanguageBadges(userId);
+        const badgesContainer = document.getElementById('badges-container');
+        if (badgesContainer) {
+            if (badges.length === 0) {
+                badgesContainer.innerHTML = '<p style="text-align: center; color: var(--gray-500); font-size: 0.875rem; width: 100%;">Earn badges by practicing languages</p>';
+            } else {
+                badgesContainer.innerHTML = badges.map(badge => {
+                    const colors = {
+                        beginner: '#A3A3A3',
+                        intermediate: '#7CB8A6',
+                        advanced: '#7BAFD4',
+                        master: '#D8B97A'
+                    };
+                    return `
+                        <div style="padding: var(--spacing-xs) var(--spacing-sm); border: 2px solid ${colors[badge.type] || 'var(--gray-200)'}; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 4px; background: var(--white);">
+                            <span>${badge.flag}</span>
+                            <span>${badge.language} (${badge.type})</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    },
+
+    logPractice: async () => {
+        if (!Auth.currentUser) return;
+        const select = document.getElementById('practice-lang-select');
+        const input = document.getElementById('practice-minutes');
+        
+        const lang = select.value;
+        const mins = parseInt(input.value);
+        
+        if (!mins || mins <= 0) {
+            Utils.showToast('Please enter valid minutes');
+            return;
+        }
+        
+        Utils.showLoading('Logging practice...');
+        await Language.trackPracticeTime(Auth.currentUser.uid, lang, mins);
+        Utils.hideLoading();
+        Utils.showToast('Practice time logged!');
+        input.value = '';
+        await LanguageUI.refresh();
+    },
+
+    setGoal: async () => {
+        if (!Auth.currentUser) return;
+        const select = document.getElementById('goal-lang-select');
+        const input = document.getElementById('goal-minutes');
+        
+        const lang = select.value;
+        const mins = parseInt(input.value);
+        
+        if (!mins || mins <= 0) {
+            Utils.showToast('Please enter valid minutes');
+            return;
+        }
+        
+        Utils.showLoading('Setting goal...');
+        await Language.setLanguageGoal(Auth.currentUser.uid, lang, mins);
+        Utils.hideLoading();
+        input.value = '';
+        await LanguageUI.refresh();
+    },
+
+    addWord: async () => {
+        if (!Auth.currentUser) return;
+        const wordInput = document.getElementById('vocab-word');
+        const transInput = document.getElementById('vocab-translation');
+        const select = document.getElementById('vocab-lang-select');
+        
+        const word = wordInput.value.trim();
+        const translation = transInput.value.trim();
+        const lang = select.value;
+        
+        if (!word || !translation) {
+            Utils.showToast('Please enter both word and translation');
+            return;
+        }
+        
+        Utils.showLoading('Adding word...');
+        await Language.addVocabulary(Auth.currentUser.uid, word, translation, lang);
+        Utils.hideLoading();
+        wordInput.value = '';
+        transInput.value = '';
+        await LanguageUI.refresh();
+    }
+};
+
+window.LanguageUI = LanguageUI;
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Language;
+    module.exports = { Language, LanguageUI };
 }

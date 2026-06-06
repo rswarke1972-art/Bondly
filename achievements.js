@@ -171,6 +171,19 @@ const Achievements = {
 
 const userDocs =
     await Promise.all(friendPromises);
+
+                    // Fetch current user's country
+                    const currentUserDoc = await db.collection('users').doc(userId).get();
+                    const currentUserCountry = currentUserDoc.data()?.country || '';
+
+                    userDocs.forEach(userDoc => {
+                        if (userDoc.exists) {
+                            const friendCountry = userDoc.data().country;
+                            if (friendCountry && friendCountry !== currentUserCountry) {
+                                countries.add(friendCountry);
+                            }
+                        }
+                    });
                     
                     if (achievementId === 'language_explorer') {
                         return countries.size >= 1;
@@ -400,6 +413,19 @@ const userDocs =
 );
         
         document.body.appendChild(modal);
+    },
+    
+    // Check achievements by category to optimize Firestore queries
+    checkCategoryAchievements: async (category) => {
+        const categories = {
+            friends: ['first_friend', 'supportive_friend', 'social_butterfly', 'bondly_legend', 'language_explorer', 'cultural_explorer', 'study_buddy'],
+            messages: ['first_message', 'conversation_master', 'bondly_legend', 'meaningful_conversation', 'deep_talker'],
+            language: ['polyglot']
+        };
+        const list = categories[category] || [];
+        for (const id of list) {
+            await Achievements.checkAchievement(id);
+        }
     }
 };
 
