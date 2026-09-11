@@ -3,7 +3,9 @@
 const Chats = {
     chats: [],
     chatsListener: null,
-    
+    // In-memory cache: { [uid]: userData } — prevents re-fetching profiles on every snapshot
+    userCache: {},
+
     // Initialize chats screen
     init: () => {
         console.log('Chats module initializing');
@@ -49,15 +51,39 @@ const Chats = {
                 
                 Chats.chats = chats;
                 
-                // Load user data for each chat
-                const chatsWithUsers = await Promise.all(
-                    chats.map(async (chat) => {
-                        const otherUserId = chat.participants.find(p => p !== userId);
-                        const userDoc = await db.collection('users').doc(otherUserId).get();
-                        const userData = Utils.sanitizeUser(userDoc.data());
-                        return { ...chat, userData };
-                    })
-                );
+                // Collect unique partner UIDs that are not yet in cache
+                const uncachedUids = [...new Set(
+                    chats
+                        .map(chat => chat.participants?.find(p => p !== userId))
+                        .filter(uid => uid && !Chats.userCache[uid])
+                )];
+
+                // Fetch all uncached users in parallel (single batch)
+                if (uncachedUids.length > 0) {
+                    await Promise.all(uncachedUids.map(async uid => {
+                        try {
+                            const userDoc = await db.collection('users').doc(uid).get();
+                            if (userDoc.exists) {
+                                Chats.userCache[uid] = Utils.sanitizePublicUser(userDoc.data());
+                            }
+                        } catch (err) {
+                            console.warn('[Bondly Chats] Could not fetch user:', uid, err);
+                        }
+                    }));
+                }
+
+                // Build enriched chat list using cache
+                const chatsWithUsers = chats.map(chat => {
+                    const otherUserId = chat.participants?.find(p => p !== userId);
+                    const userData = Chats.userCache[otherUserId] || {
+                        uid: otherUserId,
+                        displayName: 'Unknown User',
+                        username: '',
+                        avatar: '',
+                        online: false
+                    };
+                    return { ...chat, userData };
+                });
                 
                 Chats.renderChats(chatsWithUsers);
             });
@@ -80,13 +106,17 @@ const Chats = {
         chatList.innerHTML = chats.map(chat => {
             const unreadCount = chat.unread?.[Auth.currentUser.uid] || 0;
             const isUnread = unreadCount > 0;
+            const userData = chat.userData || {};
+            const displayName = Utils.escapeHTML(userData.displayName || 'Unknown User');
+            const avatar = Utils.escapeHTML(userData.avatar || '');
+            const uid = Utils.escapeHTML(userData.uid || '');
             
             return `
-                <div class="chat-item ${isUnread ? 'unread' : ''}" onclick="App.openChat('${chat.userData.uid}', '${chat.userData.displayName}', '${chat.userData.avatar}')">
-                    <img src="${chat.userData.avatar}" alt="${chat.userData.displayName}" class="chat-avatar ${chat.userData.online ? '' : 'offline'}">
+                <div class="chat-item ${isUnread ? 'unread' : ''}" onclick="App.openChat('${uid}', '${displayName}', '${avatar}')">
+                    <img src="${avatar}" alt="${displayName}" class="chat-avatar ${userData.online ? '' : 'offline'}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'44\\' height=\\'44\\' viewBox=\\'0 0 44 44\\'%3E%3Crect fill=\\'%237BAFD4\\' width=\\'44\\' height=\\'44\\'/%3E%3Ctext x=\\'22\\' y=\\'22\\' font-size=\\'20\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'white\\'%3E👤%3C/text%3E%3C/svg%3E'">
                     <div class="chat-info">
-                        <div class="chat-name">${chat.userData.displayName}</div>
-                        <div class="chat-preview">${chat.lastMessage || 'No messages yet'}</div>
+                        <div class="chat-name">${displayName}</div>
+                        <div class="chat-preview">${Utils.escapeHTML(chat.lastMessage || 'No messages yet')}</div>
                     </div>
                     <div class="chat-meta">
                         <div class="chat-time">${chat.lastMessageTime ? Utils.formatTime(chat.lastMessageTime.toDate()) : ''}</div>

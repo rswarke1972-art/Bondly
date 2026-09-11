@@ -1594,98 +1594,38 @@ menu?.classList.remove('show');
 
         switch (type) {
             case 'photo':
-    input.accept = 'image/*';
-
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-
-        if (!file) return;
-
-        try {
-            console.log('Uploading photo...');
-
-            Utils.showLoading('Uploading photo...');
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('upload_preset', 'bondly_upload');
-            formData.append(
-    'file',
-    file
-);
-
-formData.append(
-    'upload_preset',
-    'bondly_upload'
-);
-
-const endpoint = 'image/upload';
-
-const response =
-    await fetch(
-        `https://api.cloudinary.com/v1_1/dvjdqc8pj/${endpoint}`,
-        {
-            method: 'POST',
-            body: formData
-        }
-    );
-
-            const data = await response.json();
-
-            console.log('Cloudinary success:', data);
-
-            const db = FirebaseService.getDb();
-
-            await db.collection('chats')
-.doc(Messaging.currentChatId)
-.collection('messages')
-.add({
-
-    sender:
-    Auth.currentUser.uid,
-
-    type:
-    type === 'photo'
-        ? 'image'
-        : 'file',
-
-    imageUrl:
-    type === 'photo'
-        ? data.secure_url
-        : null,
-
-    fileUrl:
-    type !== 'photo'
-        ? data.secure_url
-        : null,
-
-    fileName:
-    file.name,
-
-    timestamp:
-    firebase.firestore
-    .FieldValue
-    .serverTimestamp(),
-
-    read: false,
-    status: {
-        sent: true,
-        delivered: false,
-        seen: false
-    }
-});
-
-            Utils.hideLoading();
-            console.log('Image message sent');
-
-        } catch (error) {
-            console.error('Photo upload failed:', error);
-            Utils.hideLoading();
-            Utils.showToast('Failed to upload photo');
-        }
-    };
-
-    break;
+                input.accept = 'image/*';
+                input.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    try {
+                        Utils.showLoading('Uploading photo...');
+                        const data = await Utils.uploadToCloudinary(file, 'image');
+                        const db = FirebaseService.getDb();
+                        await db.collection('chats')
+                            .doc(Messaging.currentChatId)
+                            .collection('messages')
+                            .add({
+                                sender: Auth.currentUser.uid,
+                                type: 'image',
+                                imageUrl: data.secure_url,
+                                fileUrl: null,
+                                fileName: file.name,
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                                reactions: [],
+                                edited: false,
+                                deleted: false,
+                                read: false,
+                                status: { sent: true, delivered: false, seen: false }
+                            });
+                        Utils.hideLoading();
+                    } catch (error) {
+                        console.error('Photo upload failed:', error);
+                        Utils.hideLoading();
+                        Utils.showToast('Failed to upload photo');
+                    }
+                };
+                break;
             case 'video':
                 input.accept = 'video/*';
                 input.onchange = (e) => Messaging.handleFileUpload(e.target.files[0], 'video');

@@ -1,49 +1,44 @@
 {
-  "name": "Bondly",
+  "name": "Bondly - Meaningful Friendships & Language Exchange",
   "short_name": "Bondly",
   "description": "Find Your People. Real conversations. Real friendships.",
-  "start_url": "/Bondly/",
-  "scope": "/Bondly/",
+  "start_url": "index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#F6F3EE",
   "theme_color": "#7BAFD4",
-  "orientation": "portrait-primary",
-
+  "orientation": "any",
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ],
-
   "categories": [
     "social",
     "communication"
   ],
-
   "shortcuts": [
     {
       "name": "Home",
       "short_name": "Home",
-      "url": "/Bondly/"
+      "url": "index.html"
     },
     {
       "name": "Discover",
       "short_name": "Discover",
-      "url": "/Bondly/?screen=discover"
+      "url": "index.html?screen=discover"
     },
     {
       "name": "Chats",
       "short_name": "Chats",
-      "url": "/Bondly/?screen=chats"
+      "url": "index.html?screen=chats"
     }
   ]
 }

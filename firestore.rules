@@ -128,8 +128,8 @@ service cloud.firestore {
     // Blocked users
     match /blockedUsers/{blockId} {
       allow read: if isAuthenticated() && (resource.data.blocker == request.auth.uid || resource.data.blocked == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.blocker == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.blocker == request.auth.uid;
+      allow create: if isAuthenticated() && (request.resource.data.blocker == request.auth.uid || request.resource.data.blocked == request.auth.uid);
+      allow delete: if isAuthenticated() && (resource.data.blocker == request.auth.uid || resource.data.blocked == request.auth.uid);
     }
   }
 }

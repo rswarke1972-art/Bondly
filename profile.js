@@ -398,6 +398,7 @@ const Profile = {
                         <h3>🌍 ${userData.country || 'Unknown'}</h3>
                         <p style="color: var(--gray-500); font-size: 0.875rem;">${userData.timezone || ''}</p>
                     </div>
+
                     
                     <div class="detail-section">
                         <h3>Languages</h3>

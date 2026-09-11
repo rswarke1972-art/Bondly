@@ -1,6 +1,6 @@
 // Bondly Service Worker for PWA
 
-const CACHE_NAME = 'bondly-v3';
+const CACHE_NAME = 'bondly-v4';
 const urlsToCache = [
     './',
     './index.html',
@@ -16,6 +16,17 @@ const urlsToCache = [
     './settings.js',
     './utils.js',
     './firebase.js',
+    './mobile.js',
+    './chats.js',
+    './discover.js',
+    './matching.js',
+    './language.js',
+    './deepmode.js',
+    './safety.js',
+    './moderation.js',
+    './search.js',
+    './achievements.js',
+    './presence.js',
     './manifest.json'
 ];
 
@@ -26,9 +37,16 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('[Bondly] Service Worker: Caching app shell');
-                return cache.addAll(urlsToCache);
+                return Promise.allSettled(
+                    urlsToCache.map((url) => {
+                        return cache.add(url).catch((err) => {
+                            console.warn('[Bondly] Failed to cache asset: ' + url, err);
+                        });
+                    })
+                );
             })
     );
+    self.skipWaiting();
 });
 
 // Activate event - clean up old caches

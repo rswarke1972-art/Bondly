@@ -388,26 +388,26 @@ const Utils = {
         }
     },
     
-    // Sanitize user object to protect email privacy
-    sanitizeUser: (userData) => {
+    // Sanitize user object to protect email and private details
+    sanitizeUser: (userData, isSelf = false) => {
         if (!userData) return null;
         const sanitized = { ...userData };
-        if (typeof Auth !== 'undefined' && Auth.currentUser) {
-            if (sanitized.uid !== Auth.currentUser.uid) {
-                delete sanitized.email;
-            }
-        } else {
-            // Safety fallback: if auth is not initialized or user is not logged in, remove email
+        const isCurrentAuthUser = isSelf || (typeof Auth !== 'undefined' && Auth.currentUser && sanitized.uid === Auth.currentUser.uid);
+        if (!isCurrentAuthUser) {
             delete sanitized.email;
+            delete sanitized.notificationSettings;
+            delete sanitized.fcmToken;
         }
         return sanitized;
     },
 
     // Build a public-safe user object for cards, profiles, chat lists, and feeds
     sanitizePublicUser: (userData) => {
-        const user = Utils.sanitizeUser(userData);
+        const user = Utils.sanitizeUser(userData, false);
         if (!user) return null;
         delete user.email;
+        delete user.notificationSettings;
+        delete user.fcmToken;
         return user;
     },
 
